@@ -450,7 +450,8 @@ var CONFIG = {
   whatsapp: '34641094154',        // tu número con prefijo, sin espacios ni +, p. ej. '34600111222'
   amazonTag: '',       // tu identificador de afiliado de Amazon, si lo tienes
   imgBase: '',         // carpeta con tus fotos de producto (p. ej. 'img/'): img/pollo.jpg, img/arroz.jpg...
-  freeDay: 5           // día de la comida libre: 0 lunes ... 5 sábado, 6 domingo
+  freeDay: 5,          // día de la comida libre: 0 lunes ... 5 sábado, 6 domingo
+  revoked: []          // códigos de enlaces anulados, p. ej. ['k3x9pq']: ese enlace deja de abrir la app
 };
 </script>
 
@@ -1039,7 +1040,7 @@ if (typeof module !== 'undefined') module.exports = MN;
     document.body.className = (state.d ? 'goal-' + state.d.objetivo : '') + (state.mode !== 'coach' ? ' client' : '');
     $('exampleBadge').hidden = !(state.mode === 'coach' && state.isExample);
 
-    if (state.mode === 'locked' || state.mode === 'invalid' || state.mode === 'expired') { $('goalPill').hidden = true; res.innerHTML = gateView(); return; }
+    if (state.mode === 'locked' || state.mode === 'invalid' || state.mode === 'expired' || state.mode === 'revoked') { $('goalPill').hidden = true; res.innerHTML = gateView(); return; }
     $('goalPill').hidden = false;
     var d = state.d;
     $('goalPill').textContent = MN.GOAL_NAME[d.objetivo];
@@ -1222,7 +1223,8 @@ if (typeof module !== 'undefined') module.exports = MN;
       h += '<textarea id="linkOut" readonly aria-label="Enlace del cliente">' + esc(state.link) + '</textarea>' +
         '<div class="data-row"><button class="btn small" id="copyLink">Copiar enlace</button>' +
         '<a class="btn small" target="_blank" rel="noopener" href="https://wa.me/?text=' + encodeURIComponent('Hola ' + state.d.nombre.split(' ')[0] + ', aquí tienes tu plan de MetaNutrición: ' + state.link) + '">Enviar por WhatsApp</a>' +
-        '<button class="btn small" id="previewClient">Ver como cliente</button><span class="meta" id="linkMsg"></span></div>';
+        '<button class="btn small" id="previewClient">Ver como cliente</button><span class="meta" id="linkMsg"></span></div>' +
+        '<p class="meta" style="margin:0">Código del enlace: <b>' + esc(state.linkId || '') + '</b>. Para anularlo, añádelo a CONFIG.revoked y vuelve a publicar la app. El enlace lleva los datos del cliente legibles: envíalo solo a esa persona.</p>';
       if (!CONFIG.appUrl) h += '<p class="note" style="margin:0">Cuando publiques la app en GitHub Pages, escribe su dirección en CONFIG.appUrl para que los enlaces apunten a ella.</p>';
     }
     h += '<hr class="sep"><h3>Tu clave de coach</h3>';
@@ -1247,6 +1249,7 @@ if (typeof module !== 'undefined') module.exports = MN;
   function gateView() {
     var contact = CONFIG.whatsapp ? '<a class="btn primary" target="_blank" rel="noopener" href="https://wa.me/' + esc(CONFIG.whatsapp) + '?text=' + encodeURIComponent('Hola, quiero renovar mi plan de MetaNutrición') + '">Escribir por WhatsApp</a>' : '';
     if (state.mode === 'expired') return '<div class="panel landing"><h2>Tu plan ha terminado</h2><p class="meta">El plan de ' + esc(state.client.n) + ' era válido hasta el ' + fmtDate(state.client.exp) + '. Escribe a tu coach para renovarlo y recibir tu menú actualizado.</p>' + contact + '</div>';
+    if (state.mode === 'revoked') return '<div class="panel landing"><h2>Este enlace se ha desactivado</h2><p class="meta">Tu coach ha anulado este enlace. Escríbele para recibir uno nuevo.</p>' + contact + '</div>';
     if (state.mode === 'invalid') return '<div class="panel landing"><h2>Este enlace no es válido</h2><p class="meta">Puede que esté incompleto o que se haya modificado. Pide a tu coach que te lo vuelva a enviar.</p>' + contact + '</div>';
     return '<div class="panel landing"><h2>App de clientes de MetaNutrición</h2><p class="meta">Para ver tu plan, abre el enlace personal que te envió tu coach. Si aún no tienes plan, escríbenos y te contamos cómo empezar.</p>' + contact +
       '<details><summary>Soy el coach</summary><div style="display:grid;gap:8px;margin-top:8px"><textarea id="keyIn" placeholder="Pega aquí la copia de seguridad de tu clave"></textarea>' +
@@ -1272,11 +1275,27 @@ if (typeof module !== 'undefined') module.exports = MN;
     var d = state.d, payload = {v: 1, id: Math.random().toString(36).slice(2, 8), st: st, exp: exp, n: d.nombre,
       d: {nombre: d.nombre, sexo: d.sexo, edad: d.edad, altura: d.altura, peso: d.peso, actividad: d.actividad, objetivo: d.objetivo, nivel: d.nivel,
           comidas: d.comidas, dieta: d.dieta, excl: d.excl, noGusta: d.noGusta}, w: state.week};
+    state.linkId = payload.id;
     var body = b64u(new TextEncoder().encode(JSON.stringify(payload)));
     return (coachKey ? Promise.resolve(coachKey) : createCoachKey()).then(function (k) {
       return subtle.importKey('jwk', k.priv, ALG, false, ['sign']);
     }).then(function (key) { return subtle.sign(SIG, key, new TextEncoder().encode(body)); })
       .then(function (sig) { return body + '.' + b64u(sig); });
+  }
+  // Firma un texto de prueba con la clave privada y lo verifica con la pública: así una copia con la clave pública ajena no sirve.
+  function keyPairOk(k, expectedPub) {
+    if (!subtle || !k || !k.priv || !k.pub || (expectedPub && k.pub !== expectedPub)) return Promise.resolve(false);
+    var probe = new TextEncoder().encode('metanutricion-check');
+    return Promise.all([subtle.importKey('jwk', k.priv, ALG, false, ['sign']), subtle.importKey('jwk', pubJwk(k.pub), ALG, false, ['verify'])])
+      .then(function (keys) { return subtle.sign(SIG, keys[0], probe).then(function (sig) { return subtle.verify(SIG, keys[1], sig, probe); }); })
+      .catch(function () { return false; });
+  }
+  // Fecha de hoy que no retrocede: si alguien atrasa el reloj del móvil, se usa el último día visto.
+  var SEENSTORE = 'metanutricion-visto';
+  function seenToday() {
+    var t = todayISO(), last = lsGet(SEENSTORE) || '';
+    if (/^\d{4}-\d{2}-\d{2}$/.test(last) && last > t) return last;
+    lsSet(SEENSTORE, t); return t;
   }
   function verifyToken(token) {
     var pub = CONFIG.coachPublicKey || (coachKey && coachKey.pub);
@@ -1295,7 +1314,8 @@ if (typeof module !== 'undefined') module.exports = MN;
       if (!p) { state.mode = 'invalid'; render(); return; }
       state.client = {id: p.id, exp: p.exp, n: p.n, st: p.st || todayISO()};
       prog = null; state.ctab = 'hoy'; state.msub = 'semana'; state.lesson = 0; state.quiz = {}; if (!preview) state.sim = null;
-      if (new Date().toISOString().slice(0, 10) > p.exp) { state.mode = 'expired'; render(); return; }
+      if ((CONFIG.revoked || []).indexOf(p.id) >= 0) { state.mode = 'revoked'; if (!preview && lsGet(CLIENTSTORE) === token) lsSet(CLIENTSTORE, ''); render(); return; }
+      if ((preview ? todayISO() : seenToday()) > p.exp) { state.mode = 'expired'; render(); return; }
       var d = p.d; d.salud = []; d.consent = true;
       state.d = d;
       var own = null; if (!preview) { try { own = JSON.parse(lsGet(CLIENTSTORE + '-' + p.id) || 'null'); } catch (e) {} lsSet(CLIENTSTORE, token); }
@@ -1509,13 +1529,16 @@ if (typeof module !== 'undefined') module.exports = MN;
     try { navigator.clipboard.writeText(txt).then(done, fail); } catch (er) { fail(); }
   }
   function importKey() {
-    try {
-      var k = JSON.parse($('keyIn').value);
-      if (!k || !k.priv || !k.pub) throw 0;
-      coachKey = k; lsSet(KEYSTORE, JSON.stringify(k));
+    var k;
+    try { k = JSON.parse($('keyIn').value); } catch (e) { k = null; }
+    var fail = function () { if ($('keyErr')) $('keyErr').textContent = 'No se reconoce la copia de seguridad.'; };
+    if (!k || !k.priv || !k.pub) { fail(); return; }
+    keyPairOk(k, CONFIG.coachPublicKey).then(function (ok) {
+      if (!ok) { fail(); return; }
+      coachKey = {priv: k.priv, pub: k.pub}; lsSet(KEYSTORE, JSON.stringify(coachKey));
       if (state.mode === 'locked') { start(); return; }
       render();
-    } catch (e) { $('keyErr').textContent = 'No se reconoce la copia de seguridad.'; }
+    });
   }
 
   $('form').addEventListener('submit', function (e) {
@@ -1613,10 +1636,15 @@ if (typeof module !== 'undefined') module.exports = MN;
     loadCoachKey();
     var tok = tokenFromUrl();
     if (tok) { enterClient(tok, false); return; }
-    var coachOk = !CONFIG.coachPublicKey || (coachKey && coachKey.pub === CONFIG.coachPublicKey);
     var stored = lsGet(CLIENTSTORE);
     if (stored && !coachKey) { enterClient(stored, false); return; }
-    if (!coachOk) { state.mode = 'locked'; render(); return; }
+    if (!CONFIG.coachPublicKey) { startCoach(); return; }
+    keyPairOk(coachKey, CONFIG.coachPublicKey).then(function (ok) {
+      if (!ok) { state.mode = 'locked'; render(); return; }
+      startCoach();
+    });
+  }
+  function startCoach() {
     state.mode = 'coach';
     var saved = load();
     if (saved) { state.d = saved.d; state.week = saved.week; state.isExample = saved.isExample; fillForm(saved.d); render(); }
