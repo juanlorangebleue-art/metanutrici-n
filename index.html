@@ -306,6 +306,24 @@ body.client .disclaimer { max-width: 720px; }
 .delta { font: 600 22px var(--font-display); color: var(--muted); }
 .delta.ok { color: var(--mint); }
 .delta.off { color: var(--vol); }
+.goal-why { margin: 0; font-style: italic; color: var(--muted); }
+.goal-range { font: 600 22px var(--font-display); color: var(--goal); }
+.checks { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font-size: 13.5px; }
+.checks li { display: flex; justify-content: space-between; gap: 10px; border-bottom: 1px solid var(--line); padding-bottom: 6px; }
+.checks li:last-child { border-bottom: 0; }
+.adh-big { font: 600 36px var(--font-display); }
+.adh-bars { display: flex; align-items: flex-end; gap: 4px; height: 70px; }
+.adh-bars span { flex: 1; background: var(--line); border-radius: 3px 3px 0 0; position: relative; min-height: 3px; }
+.adh-bars span.on { background: var(--brand); }
+.adh-bars span.hi { background: var(--mint); }
+.adh-lab { display: flex; gap: 4px; font-size: 10.5px; color: var(--muted); }
+.adh-lab span { flex: 1; text-align: center; }
+.tr-week { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.tr-week li { display: grid; gap: 2px; border-bottom: 1px solid var(--line); padding-bottom: 8px; font-size: 13.5px; }
+.tr-week li:last-child { border-bottom: 0; }
+.tr-week li.today { color: var(--mint); }
+.tr-ex { margin: 0; padding-left: 18px; font-size: 13.5px; }
+.tr-week .tr-ex li { display: list-item; border: 0; padding: 0; color: var(--ink); }
 .wchart { width: 100%; height: auto; }
 .wchart .wline { fill: none; stroke: var(--mint); stroke-width: 2.5; stroke-linejoin: round; }
 .wchart .wdot { fill: var(--bg); stroke: var(--mint); stroke-width: 2; }
@@ -388,6 +406,20 @@ body.client .disclaimer { max-width: 720px; }
           </select>
         </label>
       </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Meta y entrenamiento</legend>
+      <div class="row">
+        <label class="f">Peso meta (kg, opcional)<input type="number" id="meta" min="35" max="250" step="0.1" inputmode="decimal" placeholder="p. ej. 64"></label>
+        <label class="f">Días de entreno por semana
+          <select id="entreno"><option value="0">Ninguno todavía</option><option value="2">2 días</option><option value="3">3 días</option><option value="4">4 días</option><option value="5">5 días</option><option value="6">6 días</option></select>
+        </label>
+      </div>
+      <label class="f">Dónde entrena
+        <select id="lugar"><option value="gym">Gimnasio</option><option value="casa">En casa (sin máquinas)</option></select>
+      </label>
+      <label class="f">Su objetivo en sus palabras (opcional)<input type="text" id="motivo" maxlength="140" placeholder="p. ej. volver a correr sin cansarme y sentirme bien en verano" autocomplete="off"></label>
     </fieldset>
 
     <fieldset>
@@ -783,7 +815,10 @@ var MN = (function () {
       f = Math.max(0.7 * ref, 0.2 * kcal / 9);
       c = Math.max(0, (kcal - 4*p - 9*f) / 4);
     }
-    return {tmb:Math.round(tmb), tdee:Math.round(tdee), factor:factor, kcal:kcal, floor:Math.round(floor), bmi:bmi,
+    // Dieta equilibrada: grasa como mucho el 30 % y carbohidratos al menos el 35 % de las calorías (bajando la proteína hasta 1,6 g/kg si hace falta).
+    if (9*f > 0.30*kcal) { f = 0.30*kcal / 9; c = (kcal - 4*p - 9*f) / 4; }
+    if (4*c < 0.35*kcal) { p = Math.max(1.6 * ref, (kcal - 9*f - 0.35*kcal) / 4); c = Math.max(0, (kcal - 4*p - 9*f) / 4); }
+    return {tmb:Math.round(tmb), tdee:Math.round(tdee), factor:factor, kcal:kcal, floor:Math.round(floor), bmi:bmi, ref:Math.round(ref),
             p:Math.round(p), c:Math.round(c), f:Math.round(f), notes:notes};
   }
 
@@ -970,10 +1005,93 @@ var MN = (function () {
 
   function healthBlock(d) { return (d.salud || []).length > 0 || d.edad < 18; }
 
+  // Meta orientativa a 12 semanas con un ritmo saludable. Es una estimación para guiar, no una promesa de resultado.
+  function goalPlan(d, weeks) {
+    weeks = weeks || 12;
+    var t = calc(d), hm = d.altura / 100, minKg = Math.round(18.5 * hm * hm * 10) / 10, rate, lo, hi, notes = [];
+    if (d.objetivo === 'def') rate = -Math.min(0.01 * d.peso, Math.max(0.25, (t.tdee - t.kcal) * 7 / 7700));
+    else if (d.objetivo === 'vol') rate = d.peso * ({ini: 0.0035, int: 0.0025, ava: 0.0015}[d.nivel]);
+    else rate = 0;
+    rate = Math.round(rate * 100) / 100;
+    if (d.objetivo === 'man') { lo = -1; hi = 1; }
+    else { lo = Math.round(rate * weeks * 0.6 * 10) / 10; hi = Math.round(rate * weeks * 10) / 10; }
+    var meta = +d.meta || 0, stage = null, weeksNeeded = null;
+    if (meta) {
+      if (meta < minKg) notes.push('El peso meta queda por debajo de un peso saludable para su estatura (' + String(minKg).replace('.', ',') + ' kg). Conviene revisarlo.');
+      var gap = meta - d.peso;
+      if (d.objetivo === 'def' && gap > 0 || d.objetivo === 'vol' && gap < 0) notes.push('El peso meta no va en la dirección del objetivo elegido.');
+      else if (rate && Math.abs(gap) > 0.05) {
+        weeksNeeded = Math.ceil(Math.abs(gap / rate));
+        if (weeksNeeded > weeks) stage = Math.round((d.peso + rate * weeks) * 10) / 10;
+      }
+    }
+    return {rate: rate, lo: Math.min(lo, hi), hi: Math.max(lo, hi), meta: meta, weeksNeeded: weeksNeeded, stage: stage, minKg: minKg, notes: notes};
+  }
+
+  // Comprueba que el menú es equilibrado: reparto de macros, fruta y verdura, y variedad.
+  var STARCH = ['patata', 'boniato'];
+  function balance(plan) {
+    var t = plan.t, fv = 0, foods = {};
+    plan.days.forEach(function (day) { day.meals.forEach(function (m) { m.items.forEach(function (it) {
+      foods[it.id] = 1;
+      if (FOODS[it.id] && FOODS[it.id].s === V && STARCH.indexOf(it.id) < 0) fv += it.g;
+    }); }); });
+    var pk = t.p / (t.ref || 70), cp = t.c * 4 / t.kcal, fp = t.f * 9 / t.kcal, fvDay = Math.round(fv / 7), variety = Object.keys(foods).length;
+    return [
+      ['Proteína', String(Math.round(pk * 10) / 10).replace('.', ',') + ' g por kg', pk >= 1.4 && pk <= 2.4, 'entre 1,4 y 2,4 g por kg'],
+      ['Carbohidratos', Math.round(cp * 100) + ' %', cp >= 0.345 && cp <= 0.65, 'entre 35 y 65 %'],
+      ['Grasas', Math.round(fp * 100) + ' %', fp >= 0.20 && fp <= 0.35, 'entre 20 y 35 %'],
+      ['Fruta y verdura', fvDay + ' g al día', fvDay >= 400, '400 g o más al día'],
+      ['Variedad', variety + ' alimentos a la semana', variety >= 15, '15 o más']
+    ];
+  }
+
+  // Recomendación de entrenamiento según objetivo, experiencia, días disponibles y lugar.
+  var EX = {
+    gym: {full: [['Sentadilla en multipower o prensa','3×10'],['Press de pecho con mancuernas','3×10'],['Jalón al pecho','3×10'],['Peso muerto rumano','3×10'],['Plancha','3×30 s']],
+          torso: [['Press de banca','4×8'],['Remo con barra o en máquina','4×8'],['Press militar con mancuernas','3×10'],['Jalón al pecho','3×10'],['Curl de bíceps y extensión de tríceps','2×12']],
+          pierna: [['Sentadilla','4×8'],['Peso muerto rumano','3×10'],['Zancadas','3×10 por pierna'],['Curl femoral','3×12'],['Elevación de gemelos','3×15']],
+          empuje: [['Press de banca','4×8'],['Press inclinado con mancuernas','3×10'],['Press militar','3×8'],['Elevaciones laterales','3×15'],['Fondos o extensión de tríceps','3×12']],
+          tiron: [['Dominadas o jalón','4×8'],['Remo con barra','4×8'],['Remo en polea baja','3×10'],['Face pull','3×15'],['Curl de bíceps','3×12']]},
+    casa: {full: [['Sentadilla con peso corporal o mochila','3×15'],['Flexiones (en rodillas si hace falta)','3×10'],['Remo con mochila o botellas','3×12'],['Puente de glúteo','3×15'],['Plancha','3×30 s']],
+           torso: [['Flexiones','4×máx.'],['Remo con mochila','4×12'],['Press de hombro con botellas','3×12'],['Flexiones diamante','3×8'],['Superman','3×15']],
+           pierna: [['Sentadilla búlgara en silla','4×10 por pierna'],['Puente de glúteo a una pierna','3×12'],['Zancadas','3×12 por pierna'],['Sentadilla isométrica en pared','3×40 s'],['Elevación de gemelos','3×20']],
+           empuje: [['Flexiones','4×máx.'],['Flexiones con pies elevados','3×10'],['Pike push-up','3×8'],['Fondos en silla','3×12'],['Plancha','3×40 s']],
+           tiron: [['Remo con mochila','4×12'],['Remo invertido bajo una mesa','3×10'],['Superman','3×15'],['Curl con mochila','3×12'],['Plancha lateral','3×30 s']]}
+  };
+  var FOCUS = {full: 'Cuerpo completo', torso: 'Torso', pierna: 'Pierna', empuje: 'Empuje', tiron: 'Tirón'};
+  var TR_DAYS = {2: [0, 3], 3: [0, 2, 4], 4: [0, 1, 3, 4], 5: [0, 1, 2, 4, 5], 6: [0, 1, 2, 3, 4, 5]};
+  function training(d) {
+    var n = d.entreno == null || d.entreno === '' ? 3 : +d.entreno, lugar = d.lugar === 'casa' ? 'casa' : 'gym';
+    var start = n < 2, days = TR_DAYS[Math.max(2, Math.min(6, n))];
+    if (start) days = [0, 3];
+    var split;
+    if (start || d.nivel === 'ini' || days.length <= 3) split = days.map(function () { return 'full'; });
+    else if (days.length === 4) split = ['torso', 'pierna', 'torso', 'pierna'];
+    else if (days.length === 5) split = d.nivel === 'ava' ? ['empuje', 'tiron', 'pierna', 'torso', 'pierna'] : ['torso', 'pierna', 'full', 'torso', 'pierna'];
+    else split = d.nivel === 'ava' ? ['empuje', 'tiron', 'pierna', 'empuje', 'tiron', 'pierna'] : ['torso', 'pierna', 'full', 'torso', 'pierna', 'full'];
+    var setsTxt = function (x) {
+      if (start || d.nivel === 'ini') return x.replace(/^4×/, '3×').replace(/^3×(\d+)$/, '2–3×$1');
+      return x;
+    };
+    var sessions = days.map(function (di, i) {
+      return {day: di, name: DAYS[di], focus: FOCUS[split[i]], ex: EX[lugar][split[i]].map(function (e) { return [e[0], setsTxt(e[1])]; })};
+    });
+    var steps = {def: '8.000 a 10.000', man: '7.000 a 9.000', vol: '6.000 a 8.000'}[d.objetivo];
+    var cardio = d.objetivo === 'def' ? '2 paseos rápidos o bici suave de 20 a 30 minutos en días sin fuerza' :
+                 d.objetivo === 'vol' ? 'Opcional: 1 o 2 paseos de 20 minutos para la salud del corazón' : '1 o 2 sesiones de 20 a 30 minutos de cardio suave';
+    var tip = d.objetivo === 'vol' ? 'Sube un poco el peso o una repetición cada semana: es la señal para ganar músculo.' :
+              d.objetivo === 'def' ? 'Mantén el peso de tus series aunque comas menos: así conservas el músculo mientras pierdes grasa.' :
+              'Intenta mejorar una repetición o un poco de peso cada semana.';
+    return {start: start, days: n, lugar: lugar, sessions: sessions, steps: steps, cardio: cardio, tip: tip,
+            minutes: start || d.nivel === 'ini' ? '30 a 45' : '45 a 60'};
+  }
+
   return {FOODS: FOODS, RECIPES: RECIPES, SLOTS: SLOTS, DAYS: DAYS, GOAL_NAME: GOAL_NAME, LEVEL_NAME: LEVEL_NAME,
           calc: calc, pickWeek: pickWeek, buildPlan: buildPlan, alternatives: alternatives, shopping: shopping,
           healthBlock: healthBlock, byId: byId, macrosOf: macrosOf, equivalents: equivalents, optionCount: optionCount,
-          cheats: cheats, shopCost: shopCost, PROD: PROD, COMBOS: COMBOS, calcFor: calc};
+          cheats: cheats, shopCost: shopCost, PROD: PROD, COMBOS: COMBOS, calcFor: calc,
+          goalPlan: goalPlan, balance: balance, training: training};
 })();
 if (typeof module !== 'undefined') module.exports = MN;
 </script>
@@ -984,7 +1102,8 @@ if (typeof module !== 'undefined') module.exports = MN;
   var $ = function (id) { return document.getElementById(id); };
   var STORE = 'metanutricion-v1', KEYSTORE = 'metanutricion-coach', PRICESTORE = 'metanutricion-precios', CLIENTSTORE = 'metanutricion-cliente';
   var EXAMPLE = {nombre:'Andrea (ejemplo)', sexo:'m', edad:39, altura:157, peso:69, actividad:1.375, objetivo:'def', nivel:'int',
-                 comidas:4, dieta:'omni', excl:[], noGusta:'', salud:[], consent:true};
+                 comidas:4, dieta:'omni', excl:[], noGusta:'', salud:[], consent:true, meta:64, entreno:3, lugar:'gym', motivo:''};
+  var FORM_DEF = {meta:'', entreno:3, lugar:'gym', motivo:''};
   var STORES = [['Mercadona','https://tienda.mercadona.es/search-results?query='],['Carrefour','https://www.carrefour.es/?q='],
                 ['Dia','https://www.dia.es/search?q='],['Lidl','https://www.lidl.es/q/search?q=']];
   var state = {d: null, week: null, tab: 'menu', day: 0, isExample: true, mode: 'coach', client: null, preview: false, open: -1, link: '', sheetId: null};
@@ -1001,7 +1120,8 @@ if (typeof module !== 'undefined') module.exports = MN;
 
   /* ---------- Formulario (modo coach) ---------- */
   function fillForm(d) {
-    ['nombre','sexo','edad','altura','peso','actividad','objetivo','nivel','comidas','dieta','noGusta'].forEach(function (k) { $(k).value = d[k]; });
+    ['nombre','sexo','edad','altura','peso','actividad','objetivo','nivel','comidas','dieta','noGusta','meta','entreno','lugar','motivo'].forEach(function (k) {
+      $(k).value = d[k] != null ? d[k] : (FORM_DEF[k] != null ? FORM_DEF[k] : ''); });
     document.querySelectorAll('#excl input').forEach(function (i) { i.checked = d.excl.indexOf(i.value) >= 0; });
     document.querySelectorAll('#salud input').forEach(function (i) { i.checked = (d.salud || []).indexOf(i.value) >= 0; });
     $('consent').checked = !!d.consent;
@@ -1012,6 +1132,7 @@ if (typeof module !== 'undefined') module.exports = MN;
       nombre: $('nombre').value.trim(), sexo: $('sexo').value, edad: num('edad'), altura: num('altura'), peso: num('peso'),
       actividad: num('actividad'), objetivo: $('objetivo').value, nivel: $('nivel').value, comidas: parseInt($('comidas').value, 10),
       dieta: $('dieta').value, noGusta: $('noGusta').value,
+      meta: $('meta').value === '' ? '' : num('meta'), entreno: parseInt($('entreno').value, 10), lugar: $('lugar').value, motivo: $('motivo').value.trim().slice(0, 140),
       excl: Array.prototype.map.call(document.querySelectorAll('#excl input:checked'), function (i) { return i.value; }),
       salud: Array.prototype.map.call(document.querySelectorAll('#salud input:checked'), function (i) { return i.value; }),
       consent: $('consent').checked
@@ -1022,6 +1143,7 @@ if (typeof module !== 'undefined') module.exports = MN;
     if (!(d.edad >= 18 && d.edad <= 90)) return 'La edad debe estar entre 18 y 90 años. Para menores, deriva a un profesional sanitario.';
     if (!(d.altura >= 130 && d.altura <= 220)) return 'Revisa la estatura: debe estar en centímetros, entre 130 y 220.';
     if (!(d.peso >= 35 && d.peso <= 250)) return 'Revisa el peso: debe estar en kilos, entre 35 y 250.';
+    if (d.meta !== '' && !(d.meta >= 35 && d.meta <= 250)) return 'Revisa el peso meta: debe estar en kilos, entre 35 y 250, o déjalo vacío.';
     if (!d.consent) return 'Marca la casilla de consentimiento para poder calcular el plan.';
     return '';
   }
@@ -1074,13 +1196,14 @@ if (typeof module !== 'undefined') module.exports = MN;
       (state.mode === 'coach' ? '<div class="data-row"><button class="btn primary small" id="demoClient">Ver la app del cliente</button><span class="meta">Así verá su programa de 12 semanas en el móvil.</span></div>' : '') +
       t.notes.map(function (n) { return '<div class="note">' + esc(n) + '</div>'; }).join('') + '</section>';
 
-    var tabs = [['menu','Menú semanal'],['compra','Compra y gastos'],['libre','Comida libre'],['poster','Póster para la nevera']];
+    var tabs = [['menu','Menú semanal'],['objetivo','Objetivo y entreno'],['compra','Compra y gastos'],['libre','Comida libre'],['poster','Póster para la nevera']];
     if (state.mode === 'coach') tabs.push(['cliente','Cliente']);
     if (!tabs.some(function (x) { return x[0] === state.tab; })) state.tab = 'menu';
     html += '<div class="tabs" role="tablist">' + tabs.map(function (x) {
       return '<button class="tab" role="tab" data-tab="' + x[0] + '" aria-selected="' + (state.tab === x[0]) + '">' + x[1] + '</button>'; }).join('') + '</div>';
 
     if (state.tab === 'menu') html += menuView(plan);
+    if (state.tab === 'objetivo') html += '<div class="cards">' + goalCard(plan, null) + balanceCard(plan) + trainingCard(true) + '</div>';
     if (state.tab === 'compra') html += shopView(plan);
     if (state.tab === 'libre') html += cheatView(plan);
     if (state.tab === 'poster') html += posterView(plan, true);
@@ -1273,7 +1396,7 @@ if (typeof module !== 'undefined') module.exports = MN;
     var st = ($('startIn') && $('startIn').value) || todayISO(), exp = addDays(st, weeks * 7);
     var d = state.d, payload = {v: 1, id: Math.random().toString(36).slice(2, 8), st: st, exp: exp, n: d.nombre,
       d: {nombre: d.nombre, sexo: d.sexo, edad: d.edad, altura: d.altura, peso: d.peso, actividad: d.actividad, objetivo: d.objetivo, nivel: d.nivel,
-          comidas: d.comidas, dieta: d.dieta, excl: d.excl, noGusta: d.noGusta}, w: state.week};
+          comidas: d.comidas, dieta: d.dieta, excl: d.excl, noGusta: d.noGusta, meta: d.meta, entreno: d.entreno, lugar: d.lugar, motivo: d.motivo}, w: state.week};
     state.linkId = payload.id;
     var body = b64u(new TextEncoder().encode(JSON.stringify(payload)));
     return (coachKey ? Promise.resolve(coachKey) : createCoachKey()).then(function (k) {
@@ -1331,7 +1454,7 @@ if (typeof module !== 'undefined') module.exports = MN;
   function parseISO(s) { var p = s.split('-'); return new Date(+p[0], +p[1] - 1, +p[2]); }
   function addDays(s, n) { var d = parseISO(s); d.setDate(d.getDate() + n); return todayISO(d); }
   function loadProg() {
-    var empty = {w: {}, waist: {}, water: {}, done: {}, lessons: {}, reto: {}};
+    var empty = {w: {}, waist: {}, water: {}, done: {}, lessons: {}, reto: {}, train: {}};
     if (state.preview) { prog = prog && prog._preview ? prog : Object.assign(empty, {_preview: true}); return; }
     try { prog = Object.assign(empty, JSON.parse(lsGet(PROGSTORE + state.client.id) || '{}')); } catch (e) { prog = empty; }
   }
@@ -1371,6 +1494,89 @@ if (typeof module !== 'undefined') module.exports = MN;
   }
   function fmtKg(x) { return x.toLocaleString('es-ES', {maximumFractionDigits: 1}) + ' kg'; }
 
+  /* ---------- Objetivo, dieta equilibrada, entrenamiento y adherencia ---------- */
+  function signedKg(x) { return (x > 0 ? '+' : x < 0 ? '−' : '') + fmtKg(Math.abs(x)); }
+  function goalCard(plan, adh) {
+    var d = state.d, g = MN.goalPlan(d), t = plan.t;
+    var verb = {def: 'Perder grasa', man: 'Mantener tu peso y mejorar tu composición', vol: 'Ganar masa muscular'}[d.objetivo];
+    var h = '<article class="panel card wide"><div class="card-k">Tu objetivo</div><div class="card-t">' + verb + (g.meta ? ' · meta ' + fmtKg(g.meta) : '') + '</div>';
+    if (d.motivo) h += '<p class="goal-why">«' + esc(d.motivo) + '»</p>';
+    h += '<p class="meta">Cómo lo conseguimos: dieta equilibrada de ' + n0(t.kcal) + ' kcal, ' + n0(t.p) + ' g de proteína al día, ' +
+      (MN.training(d).start ? 'empezar a entrenar 2 días por semana' : 'entrenar ' + MN.training(d).days + ' días por semana') + ' y ' + MN.training(d).steps + ' pasos al día.</p>';
+    if (d.objetivo === 'man') h += '<div class="goal-range">Peso estable (±1 kg)</div><p class="meta">Lo que buscamos este trimestre es menos cintura y más fuerza con el mismo peso.</p>';
+    else h += '<div class="goal-range">' + (d.objetivo === 'def' ? signedKg(g.hi) + ' a ' + signedKg(g.lo) : signedKg(g.lo) + ' a ' + signedKg(g.hi)) + ' en 12 semanas</div>' +
+      '<p class="meta">Ritmo saludable de unos ' + Math.abs(g.rate).toLocaleString('es-ES', {maximumFractionDigits: 2}) + ' kg por semana. Es una estimación orientativa: se cumple cuando la adherencia es alta, y cada cuerpo responde a su ritmo.</p>';
+    if (g.stage) h += '<p class="meta">Tu meta de ' + fmtKg(g.meta) + ' lleva unas ' + g.weeksNeeded + ' semanas a este ritmo. Este trimestre es la primera etapa, hasta unos ' + fmtKg(g.stage) + '; con cada renovación seguimos hacia la meta.</p>';
+    else if (g.weeksNeeded) h += '<p class="meta">A este ritmo, tu meta de ' + fmtKg(g.meta) + ' está a unas ' + g.weeksNeeded + ' semanas.</p>';
+    h += g.notes.map(function (n) { return '<div class="note">' + esc(n) + '</div>'; }).join('');
+    if (adh != null) h += '<div class="data-row"><span class="meta">Adherencia de esta semana</span><b class="' + (adh >= 80 ? 'ok' : 'off') + '">' + adh + ' %</b></div>' +
+      '<div class="bar"><i style="width:' + adh + '%"></i></div>';
+    return h + '</article>';
+  }
+  function balanceCard(plan) {
+    var rows = MN.balance(plan), ok = rows.filter(function (r) { return r[2]; }).length;
+    return '<article class="panel card"><div class="card-k">Dieta equilibrada</div><div class="card-t">' + ok + ' de ' + rows.length + ' criterios cumplidos</div><ul class="checks">' +
+      rows.map(function (r) { return '<li><span>' + r[0] + ' <span class="meta">(' + r[3] + ')</span></span><b class="' + (r[2] ? 'ok' : 'off') + '">' + (r[2] ? '✓ ' : '') + r[1] + '</b></li>'; }).join('') + '</ul>' +
+      '<p class="meta">En cada plato: la mitad verdura, un cuarto proteína y un cuarto hidratos. La verdura de hoja y las hortalizas puedes añadirlas libremente.</p></article>';
+  }
+  function trainingCard(full) {
+    var tr = MN.training(state.d), today = (new Date().getDay() + 6) % 7;
+    var h = '<article class="panel card' + (full ? ' wide' : '') + '"><div class="card-k">Tu entrenamiento</div><div class="card-t">' +
+      (tr.start ? 'Empezamos con 2 días de fuerza' : tr.sessions.length + ' días de fuerza') + (tr.lugar === 'casa' ? ' en casa' : ' en el gimnasio') + '</div>' +
+      '<p class="meta">Sesiones de ' + tr.minutes + ' minutos. Pasos: ' + tr.steps + ' al día. Cardio: ' + tr.cardio + '.</p><ul class="tr-week">';
+    tr.sessions.forEach(function (x) {
+      h += '<li class="' + (x.day === today ? 'today' : '') + '"><b>' + x.name + ' · ' + x.focus + '</b>' +
+        (full ? '<ul class="tr-ex">' + x.ex.map(function (e) { return '<li>' + esc(e[0]) + ' · ' + e[1] + '</li>'; }).join('') + '</ul>' : '') + '</li>';
+    });
+    return h + '</ul><p class="meta">' + tr.tip + ' Si tienes una lesión o dolor, consulta antes con un profesional.</p></article>';
+  }
+  function trainingToday() {
+    var tr = MN.training(state.d), today = (new Date().getDay() + 6) % 7, s = tr.sessions.filter(function (x) { return x.day === today; })[0];
+    var h = '<article class="panel card"><div class="card-k">Entreno de hoy</div>';
+    if (!s) return h + '<div class="card-t">Descanso activo</div><p class="meta">Camina ' + tr.steps + ' pasos. ' + (state.d.objetivo === 'def' ? 'Si te apetece, 20 a 30 minutos de paseo rápido o bici suave.' : 'Estirar 10 minutos también cuenta.') + '</p></article>';
+    var done = !!(prog.train || {})[todayISO()];
+    return h + '<div class="card-t">' + s.focus + '</div><ul class="tr-ex">' + s.ex.map(function (e) { return '<li>' + esc(e[0]) + ' · ' + e[1] + '</li>'; }).join('') + '</ul>' +
+      '<button class="btn ' + (done ? 'small done-btn' : 'primary small') + '" id="toggleTrain">' + (done ? '✓ Entreno hecho' : 'He entrenado hoy') + '</button></article>';
+  }
+  // Semana del programa a la que pertenece una fecha (cambia cada domingo, igual que progWeek).
+  function weekOf(iso) {
+    var st = state.client.st || todayISO(), d = parseISO(st), end = parseISO(iso), n = 0;
+    while (d < end) { d.setDate(d.getDate() + 1); if (d.getDay() === 0) n++; }
+    return n + 1;
+  }
+  function weekDates(n) {
+    var out = [], t = todayISO(), d = state.client.st || t;
+    if (state.preview && state.sim) { for (var i = 6; i >= 0; i--) out.push(addDays(t, -i)); return out; }
+    for (var k = 0; k < 120 && d <= t; k++) { if (weekOf(d) === n) out.push(d); d = addDays(d, 1); }
+    return out;
+  }
+  // Adherencia semanal: menú cumplido 40 %, entreno 20 %, agua 15 %, lección 10 %, reto 5 %, pesaje 10 %.
+  function adherence(n) {
+    var ds = weekDates(n); if (!ds.length) return null;
+    var tr = MN.training(state.d), trainDays = ds.filter(function (x) { return tr.sessions.some(function (s) { return s.day === (parseISO(x).getDay() + 6) % 7; }); });
+    var pct = function (arr, f) { return arr.length ? arr.filter(f).length / arr.length : 1; };
+    var score = 0.40 * pct(ds, function (x) { return prog.done[x]; }) +
+      0.20 * (trainDays.length ? pct(trainDays, function (x) { return (prog.train || {})[x]; }) : 1) +
+      0.15 * pct(ds, function (x) { return (prog.water[x] || 0) >= waterGoal(); }) +
+      0.10 * (prog.lessons[n] && prog.lessons[n].read ? 1 : 0) + 0.05 * (prog.reto[n] ? 1 : 0) + 0.10 * (prog.w[n] != null ? 1 : 0);
+    return Math.round(score * 100);
+  }
+  function adherenceAvg(wk) {
+    var xs = []; for (var i = 1; i <= wk; i++) { var a = adherence(i); if (a != null) xs.push(a); }
+    return xs.length ? Math.round(xs.reduce(function (s, x) { return s + x; }, 0) / xs.length) : 0;
+  }
+  function adherenceCard(wk) {
+    var avg = adherenceAvg(wk), bars = '', labs = '';
+    for (var i = 1; i <= PROGRAM.weeks; i++) {
+      var a = i <= wk ? adherence(i) : null;
+      bars += '<span class="' + (a == null ? '' : a >= 80 ? 'hi' : 'on') + '" style="height:' + (a == null ? 3 : Math.max(3, a)) + '%" title="Semana ' + i + (a == null ? '' : ': ' + a + ' %') + '"></span>';
+      labs += '<span>' + i + '</span>';
+    }
+    return '<article class="panel card wide"><div class="card-k">Tu adherencia</div><div class="kgrow"><div><div class="adh-big ' + (avg >= 80 ? 'ok' : '') + '">' + avg + ' %</div>' +
+      '<span class="meta">Media del programa. Meta: 80 % o más.</span></div></div><div class="adh-bars" aria-hidden="true">' + bars + '</div><div class="adh-lab" aria-hidden="true">' + labs + '</div>' +
+      '<p class="meta">Cuenta tu menú cumplido, tus entrenos, el agua, la lección, el reto y el pesaje del domingo. Con un 80 % de adherencia, el plan funciona: si aun así no ves avance, tu coach lo revisa y lo ajusta contigo.</p></article>';
+  }
+
   function clientApp(plan) {
     var d = state.d, wk = progWeek(), tab = state.ctab || 'hoy';
     var h = '';
@@ -1406,7 +1612,7 @@ if (typeof module !== 'undefined') module.exports = MN;
   function todayView(plan, wk) {
     var L = PROGRAM.lessons[wk - 1], read = prog.lessons[wk] && prog.lessons[wk].read, t = todayISO();
     var dayIdx = (new Date().getDay() + 6) % 7, day = plan.days[dayIdx];
-    var h = '<div class="cards">';
+    var h = '<div class="cards">' + goalCard(plan, adherence(wk));
     // Lección de la semana
     h += '<article class="panel card lesson-card"><div class="card-k">Lección de la semana ' + wk + '</div><div class="card-t"><span class="emo-s" aria-hidden="true">' + L.e + '</span> ' + esc(L.t) + '</div>' +
       '<div class="data-row"><button class="btn ' + (read ? 'small' : 'primary small') + '" data-lesson="' + wk + '">' + (read ? 'Repasar' : 'Empezar lección') + '</button>' + (read ? '<span class="ok">✓ Completada</span>' : '') + '</div></article>';
@@ -1429,6 +1635,7 @@ if (typeof module !== 'undefined') module.exports = MN;
     h += '<article class="panel card"><div class="card-k">Tu menú de hoy · ' + day.name + '</div><ul class="today-meals">' + day.meals.filter(function (m) { return m.recipe; }).map(function (m) {
       return '<li><span class="meta">' + m.slot + '</span>' + esc(m.recipe.n) + '</li>'; }).join('') + '</ul>' +
       '<button class="btn ' + (done ? 'small done-btn' : 'primary small') + '" id="toggleDone">' + (done ? '✓ Hoy he cumplido' : 'He cumplido mi menú hoy') + '</button></article>';
+    h += trainingToday();
     // Reto
     h += '<article class="panel card"><div class="card-k">Reto de la semana</div><label class="reto"><input type="checkbox" id="retoChk"' + (prog.reto[wk] ? ' checked' : '') + '><span>' + esc(L.reto) + '</span></label></article>';
     // Comida libre el día configurado
@@ -1506,11 +1713,13 @@ if (typeof module !== 'undefined') module.exports = MN;
       '<div class="delta ' + (diff === 0 ? '' : (diff < 0) === (state.d.objetivo !== 'vol') ? 'ok' : 'off') + '">' + (diff > 0 ? '+' : diff < 0 ? '−' : '') + fmtKg(Math.abs(diff)) + '</div></div>' + weightChart(ws) + '</article>';
     h += '<article class="panel card"><div class="card-k">Cintura (cm)</div><p class="meta">Mídela a la altura del ombligo, una vez a la semana.</p><div class="data-row"><input type="number" id="waistIn" step="0.5" min="40" max="200" inputmode="decimal" value="' + (prog.waist[wk] || '') + '" style="width:110px"><button class="btn small" id="saveWaist">Guardar</button></div>' +
       (Object.keys(prog.waist).length ? '<p class="meta">' + Object.keys(prog.waist).map(Number).sort(function (a, b) { return a - b; }).map(function (k) { return 'S' + k + ': ' + dec(prog.waist[k]) + ' cm'; }).join(' · ') + '</p>' : '') + '</article>';
+    h += adherenceCard(wk) + trainingCard(true);
     h += '<article class="panel card"><div class="card-k">Tu constancia</div><ul class="stats"><li><b>' + streak() + '</b> días de racha</li><li><b>' + days + '</b> días cumplidos</li><li><b>' + lessonsRead + '</b> de 12 lecciones</li><li><b>' + retos + '</b> retos superados</li></ul></article>';
     h += '<article class="panel card wide"><div class="card-k">Logros</div><div class="badges">' + badges().map(function (b) {
       return '<div class="badge' + (b[3] ? ' on' : '') + '"><span class="bemo" aria-hidden="true">' + b[0] + '</span><b>' + esc(b[1]) + '</b><span class="meta">' + esc(b[2]) + '</span></div>'; }).join('') + '</div></article>';
     var txt = 'Resumen de ' + state.d.nombre + ' (semana ' + wk + ' de 12): peso inicial ' + fmtKg(state.d.peso) + ', actual ' + fmtKg(last) + ' (' + (diff > 0 ? '+' : '') + dec(Math.round(diff * 10) / 10) + ' kg). ' +
-      days + ' días cumplidos, racha de ' + streak() + ', ' + lessonsRead + ' lecciones y ' + retos + ' retos.' + (Object.keys(prog.waist).length ? ' Cintura: ' + Object.keys(prog.waist).map(function (k) { return 'S' + k + ' ' + dec(prog.waist[k]); }).join(', ') + ' cm.' : '');
+      days + ' días cumplidos, ' + Object.keys(prog.train || {}).length + ' entrenos, racha de ' + streak() + ', ' + lessonsRead + ' lecciones y ' + retos + ' retos. Adherencia media ' + adherenceAvg(wk) + ' %.' +
+      (state.d.meta ? ' Meta: ' + fmtKg(+state.d.meta) + '.' : '') + (Object.keys(prog.waist).length ? ' Cintura: ' + Object.keys(prog.waist).map(function (k) { return 'S' + k + ' ' + dec(prog.waist[k]); }).join(', ') + ' cm.' : '');
     h += '<article class="panel card wide"><div class="card-k">Revisión con tu coach</div><p class="meta">Envía tu resumen por WhatsApp para la revisión del trimestre o si tienes dudas.</p>' +
       '<a class="btn primary small" target="_blank" rel="noopener" href="https://wa.me/' + esc(CONFIG.whatsapp || '') + '?text=' + encodeURIComponent(txt) + '">Enviar resumen por WhatsApp</a></article></div>';
     return h;
@@ -1518,8 +1727,13 @@ if (typeof module !== 'undefined') module.exports = MN;
 
   /* ---------- Acciones ---------- */
   function generate(d, isExample) {
-    state.d = d; state.isExample = !!isExample; state.week = MN.pickWeek(d, Date.now() % 100000);
-    if (isExample) state.week = MN.pickWeek(d, 1);
+    state.d = d; state.isExample = !!isExample;
+    // Entre varios menús posibles, se queda con el más variado (más alimentos distintos a la semana).
+    var seed0 = isExample ? 1 : Date.now() % 100000, best = -1;
+    for (var i = 0; i < 6; i++) {
+      var wk = MN.pickWeek(d, seed0 + i * 7919), bal = MN.balance(MN.buildPlan(d, wk)), v = parseInt(bal[4][1], 10);
+      if (v > best) { best = v; state.week = wk; }
+    }
     state.day = 0; state.open = -1; state.link = ''; save(); render();
   }
   function copyText(txt, msgId, okText, fallbackEl) {
@@ -1568,6 +1782,7 @@ if (typeof module !== 'undefined') module.exports = MN;
       prog.lessons[state.lesson] = {read: 1, score: sc}; saveProg(); state.lesson = 0; render(); return;
     }
     if (b.dataset.water) { var td = todayISO(); prog.water[td] = Math.max(0, (prog.water[td] || 0) + +b.dataset.water); saveProg(); render(); return; }
+    if (b.id === 'toggleTrain') { var t3 = todayISO(); prog.train = prog.train || {}; if (prog.train[t3]) delete prog.train[t3]; else prog.train[t3] = 1; saveProg(); render(); return; }
     if (b.id === 'toggleDone') { var t2 = todayISO(); if (prog.done[t2]) delete prog.done[t2]; else prog.done[t2] = 1; saveProg(); render(); return; }
     if (b.id === 'saveKg') { var kg = parseFloat(String($('kgIn').value).replace(',', '.')); if (kg >= 35 && kg <= 250) { prog.w[progWeek()] = kg; saveProg(); render(); } else $('kgIn').focus(); return; }
     if (b.id === 'saveWaist') { var cm = parseFloat(String($('waistIn').value).replace(',', '.')); if (cm >= 40 && cm <= 200) { prog.waist[progWeek()] = cm; saveProg(); render(); } return; }
