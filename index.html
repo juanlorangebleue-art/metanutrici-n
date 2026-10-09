@@ -245,6 +245,21 @@ body.client .form { display: none; }
 body.client .shell { grid-template-columns: minmax(0, 1fr); }
 .landing { padding: 28px 24px; display: grid; gap: 12px; max-width: 640px; }
 .landing h2 { font-size: 24px; }
+[hidden] { display: none !important; }
+.dx { padding: 24px; display: grid; gap: 16px; max-width: 640px; margin: 0 auto; width: 100%; }
+.dx h2 { margin: 0; font: 600 26px/1.2 var(--font-display); }
+.dx-hero h2 { font-size: 30px; }
+.dx-prog { height: 4px; background: var(--line); border-radius: 2px; overflow: hidden; }
+.dx-prog i { display: block; height: 100%; background: var(--brand); }
+.dx-goals { display: grid; gap: 10px; }
+.dx-goal { text-align: left; padding: 14px 16px; border: 1px solid var(--line); border-radius: var(--r); background: var(--surface-2); color: var(--ink); font: inherit; cursor: pointer; display: grid; gap: 2px; }
+.dx-goal b { font: 600 17px var(--font-display); }
+.dx-goal[aria-pressed="true"] { border-color: var(--brand); box-shadow: inset 0 0 0 1px var(--brand); }
+.dx-list { margin: 0; padding-left: 20px; display: grid; gap: 6px; color: var(--muted); }
+.dx-nav { display: flex; gap: 10px; justify-content: space-between; align-items: center; }
+.dx-res { display: grid; gap: 6px; border-top: 1px solid var(--line); padding-top: 14px; }
+.dx-import { font-size: 14px; }
+.dx-import textarea { width: 100%; min-height: 70px; }
 .data-tools h3 { font-size: 14px; color: var(--brand); letter-spacing: 0.06em; text-transform: uppercase; }
 .data-tools input[readonly], .data-tools textarea[readonly] { color: var(--muted); }
 .sep { border: 0; border-top: 1px solid var(--line); margin: 6px 0; }
@@ -364,6 +379,10 @@ body.client .disclaimer { max-width: 720px; }
 
 <main class="shell">
   <form class="panel form" id="form" novalidate>
+    <details class="dx-import"><summary>Rellenar con el diagnóstico de un cliente</summary>
+      <div style="display:grid;gap:8px;margin-top:8px"><textarea id="dxIn" placeholder="Pega aquí el mensaje de WhatsApp con el código MN1"></textarea>
+      <div class="data-row"><button type="button" class="btn small" id="dxLoad">Rellenar formulario</button><span class="err" id="dxErr"></span></div></div>
+    </details>
     <fieldset>
       <legend>Datos del cliente</legend>
       <label class="f">Nombre<input type="text" id="nombre" autocomplete="off"></label>
@@ -1161,7 +1180,8 @@ if (typeof module !== 'undefined') module.exports = MN;
     document.body.className = (state.d ? 'goal-' + state.d.objetivo : '') + (state.mode !== 'coach' ? ' client' : '');
     $('exampleBadge').hidden = !(state.mode === 'coach' && state.isExample);
 
-    if (state.mode === 'locked' || state.mode === 'invalid' || state.mode === 'expired' || state.mode === 'revoked') { $('goalPill').hidden = true; res.innerHTML = gateView(); return; }
+    if (state.mode === 'locked' || state.mode === 'dx') { $('goalPill').hidden = true; res.innerHTML = dxView(); return; }
+    if (state.mode === 'invalid' || state.mode === 'expired' || state.mode === 'revoked') { $('goalPill').hidden = true; res.innerHTML = gateView(); return; }
     $('goalPill').hidden = false;
     var d = state.d;
     $('goalPill').textContent = MN.GOAL_NAME[d.objetivo];
@@ -1349,6 +1369,8 @@ if (typeof module !== 'undefined') module.exports = MN;
         '<p class="meta" style="margin:0">Código del enlace: <b>' + esc(state.linkId || '') + '</b>. Para anularlo, añádelo a CONFIG.revoked y vuelve a publicar la app. El enlace lleva los datos del cliente legibles: envíalo solo a esa persona.</p>';
       if (!CONFIG.appUrl) h += '<p class="note" style="margin:0">Cuando publiques la app en GitHub Pages, escribe su dirección en CONFIG.appUrl para que los enlaces apunten a ella.</p>';
     }
+    h += '<hr class="sep"><h3>Enlace para tu bio y tus mensajes</h3><p class="meta" style="margin:0">Quien abre la app sin enlace de cliente ve el diagnóstico gratis. Este enlace lo abre directamente:</p>' +
+      '<input type="text" readonly value="' + esc(baseUrl() + '#diagnostico') + '" aria-label="Enlace del diagnóstico">';
     h += '<hr class="sep"><h3>Tu clave de coach</h3>';
     if (coachKey) {
       var match = CONFIG.coachPublicKey && CONFIG.coachPublicKey === coachKey.pub;
@@ -1376,6 +1398,129 @@ if (typeof module !== 'undefined') module.exports = MN;
     return '<div class="panel landing"><h2>App de clientes de MetaNutrición</h2><p class="meta">Para ver tu plan, abre el enlace personal que te envió tu coach. Si aún no tienes plan, escríbenos y te contamos cómo empezar.</p>' + contact +
       '<details><summary>Soy el coach</summary><div style="display:grid;gap:8px;margin-top:8px"><textarea id="keyIn" placeholder="Pega aquí la copia de seguridad de tu clave"></textarea>' +
       '<div class="data-row"><button class="btn small" id="importKey">Importar clave</button><span class="err" id="keyErr"></span></div></div></details></div>';
+  }
+
+
+  /* ---------- Diagnóstico gratis: primera pantalla para quien llega sin enlace ---------- */
+  var DX_DEF = {nombre: '', sexo: 'm', edad: '', altura: '', peso: '', actividad: 1.375, objetivo: '', nivel: 'ini', comidas: 4, dieta: 'omni',
+                excl: [], noGusta: '', salud: [], consent: false, meta: '', entreno: 3, lugar: 'gym', motivo: ''};
+  var EXCL_OPTS = [['lacteo','Lácteos'],['gluten','Gluten'],['huevo','Huevo'],['pescado','Pescado'],['frutos_secos','Frutos secos'],['soja','Soja'],['cerdo','Cerdo']];
+  var SALUD_OPTS = [['embarazo','Embarazo o lactancia'],['tca','Trastorno de la conducta alimentaria (actual o pasado)'],['diabetes','Diabetes'],['organo','Enfermedad renal, hepática o cardiovascular'],['medicacion','Medicación crónica']];
+  function dxSel(id, label, opts, val) {
+    return '<label class="f">' + label + '<select id="' + id + '">' + opts.map(function (o) { return '<option value="' + o[0] + '"' + (String(o[0]) === String(val) ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select></label>';
+  }
+  function dxNum(id, label, val, min, max, step) {
+    return '<label class="f">' + label + '<input type="number" id="' + id + '" min="' + min + '" max="' + max + '" step="' + (step || 1) + '" inputmode="decimal" value="' + esc(val) + '"></label>';
+  }
+  function dxChips(id, opts, vals, warn) {
+    return '<div class="chips" id="' + id + '">' + opts.map(function (o) { return '<label class="chip' + (warn ? ' warn' : '') + '"><input type="checkbox" value="' + o[0] + '"' + (vals.indexOf(o[0]) >= 0 ? ' checked' : '') + '><span>' + o[1] + '</span></label>'; }).join('') + '</div>';
+  }
+  function dxRead() {
+    var d = state.dx.d, v = function (id) { return $(id) ? $(id).value : null; }, num = function (id) { var x = v(id); return x == null ? null : x === '' ? '' : parseFloat(String(x).replace(',', '.')); };
+    ['nombre', 'motivo', 'noGusta'].forEach(function (k) { if (v('dx_' + k) != null) d[k] = v('dx_' + k).trim().slice(0, k === 'nombre' ? 60 : 140); });
+    ['edad', 'altura', 'peso', 'meta', 'actividad'].forEach(function (k) { if (v('dx_' + k) != null) d[k] = num('dx_' + k); });
+    ['sexo', 'nivel', 'dieta', 'lugar'].forEach(function (k) { if (v('dx_' + k) != null) d[k] = v('dx_' + k); });
+    ['entreno', 'comidas'].forEach(function (k) { if (v('dx_' + k) != null) d[k] = parseInt(v('dx_' + k), 10); });
+    if ($('dx_excl')) d.excl = Array.prototype.map.call(document.querySelectorAll('#dx_excl input:checked'), function (i) { return i.value; });
+    if ($('dx_salud')) d.salud = Array.prototype.map.call(document.querySelectorAll('#dx_salud input:checked'), function (i) { return i.value; });
+    if ($('dx_consent')) d.consent = $('dx_consent').checked;
+  }
+  function dxCheck(step) {
+    var d = state.dx.d;
+    if (step === 1 && !d.objetivo) return 'Elige qué quieres conseguir.';
+    if (step === 1 && d.meta !== '' && !(d.meta >= 35 && d.meta <= 250)) return 'Revisa el peso meta: en kilos, entre 35 y 250, o déjalo vacío.';
+    if (step === 2) {
+      if (!d.nombre) return 'Escribe tu nombre.';
+      if (!(d.edad >= 18 && d.edad <= 90)) return 'El programa es para mayores de edad (18 a 90 años).';
+      if (!(d.altura >= 130 && d.altura <= 220)) return 'Revisa tu estatura: en centímetros, entre 130 y 220.';
+      if (!(d.peso >= 35 && d.peso <= 250)) return 'Revisa tu peso: en kilos, entre 35 y 250.';
+    }
+    if (step === 3 && !d.consent) return 'Marca la casilla de consentimiento para ver tu resultado.';
+    return '';
+  }
+  function dxCode(d) {
+    var keys = ['nombre','sexo','edad','altura','peso','actividad','objetivo','nivel','comidas','dieta','excl','noGusta','meta','entreno','lugar','motivo'], o = {};
+    keys.forEach(function (k) { o[k] = d[k]; });
+    return 'MN1.' + b64u(new TextEncoder().encode(JSON.stringify(o)));
+  }
+  function dxView() {
+    if (!state.dx) state.dx = {step: 0, d: JSON.parse(JSON.stringify(DX_DEF)), err: ''};
+    var x = state.dx, d = x.d, st = x.step, h = '<div class="panel dx">';
+    if (st >= 1 && st <= 3) h += '<div class="card-k">Diagnóstico gratis · paso ' + st + ' de 3</div><div class="dx-prog"><i style="width:' + (st / 3 * 100).toFixed(0) + '%"></i></div>';
+    if (st === 0) {
+      h += '<div class="dx-hero"><div class="card-k">Diagnóstico gratis · 2 minutos</div><h2>Descubre tu punto de partida</h2></div>' +
+        '<p class="meta" style="margin:0">Responde unas preguntas y te mostramos tus calorías, una meta realista para 12 semanas y cómo entrenar. Sin registrarte.</p>' +
+        '<ul class="dx-list"><li>Tu energía y tus macros del día</li><li>Cuánto puedes avanzar a un ritmo saludable</li><li>Tu plan de entreno según tus días libres</li></ul>' +
+        '<button class="btn primary" data-dx="next">Empezar mi diagnóstico</button>' +
+        '<details><summary>Ya tengo plan</summary><p class="meta">Abre el enlace personal que te envió tu coach por WhatsApp. Si lo has perdido, escríbele y te lo reenvía.</p></details>';
+      if (state.mode === 'locked') h += '<details><summary>Soy el coach</summary><div style="display:grid;gap:8px;margin-top:8px"><textarea id="keyIn" placeholder="Pega aquí la copia de seguridad de tu clave"></textarea>' +
+        '<div class="data-row"><button class="btn small" id="importKey">Importar clave</button><span class="err" id="keyErr"></span></div></div></details>';
+    }
+    if (st === 1) {
+      h += '<h2>¿Qué quieres conseguir?</h2><div class="dx-goals">' + [['def','Perder grasa','Bajar peso y cintura sin perder músculo'],['man','Mantenerme y mejorar','Mismo peso, más fuerza y mejor composición'],['vol','Ganar músculo','Subir peso de forma limpia y ganar fuerza']].map(function (g) {
+        return '<button class="dx-goal" data-dxgoal="' + g[0] + '" aria-pressed="' + (d.objetivo === g[0]) + '"><b>' + g[1] + '</b><span class="meta">' + g[2] + '</span></button>'; }).join('') + '</div>' +
+        '<label class="f">¿Por qué lo quieres conseguir? (opcional)<input type="text" id="dx_motivo" maxlength="140" value="' + esc(d.motivo) + '" placeholder="p. ej. sentirme con energía y volver a ponerme mis vaqueros" autocomplete="off"></label>' +
+        dxNum('dx_meta', 'Peso que te gustaría alcanzar en kg (opcional)', d.meta, 35, 250, 0.1);
+    }
+    if (st === 2) {
+      h += '<h2>Tus datos</h2><label class="f">Nombre<input type="text" id="dx_nombre" maxlength="60" value="' + esc(d.nombre) + '" autocomplete="given-name"></label>' +
+        '<div class="row">' + dxSel('dx_sexo', 'Sexo', [['m','Mujer'],['h','Hombre']], d.sexo) + dxNum('dx_edad', 'Edad', d.edad, 18, 90) + '</div>' +
+        '<div class="row">' + dxNum('dx_altura', 'Estatura (cm)', d.altura, 130, 220) + dxNum('dx_peso', 'Peso (kg)', d.peso, 35, 250, 0.1) + '</div>' +
+        dxSel('dx_actividad', 'Actividad física', [[1.2,'Sedentaria (sin ejercicio)'],[1.375,'Ligera (1 a 3 días por semana)'],[1.55,'Moderada (3 a 5 días por semana)'],[1.725,'Alta (6 a 7 días por semana)'],[1.9,'Muy alta (doble sesión o trabajo físico)']], d.actividad) +
+        '<div class="row">' + dxSel('dx_entreno', 'Días que puedes entrenar', [[0,'Ninguno todavía'],[2,'2 días'],[3,'3 días'],[4,'4 días'],[5,'5 días'],[6,'6 días']], d.entreno) +
+        dxSel('dx_lugar', 'Dónde', [['gym','Gimnasio'],['casa','En casa']], d.lugar) + '</div>' +
+        dxSel('dx_nivel', 'Experiencia entrenando', [['ini','Menos de 6 meses'],['int','De 6 meses a 2 años'],['ava','Más de 2 años']], d.nivel);
+    }
+    if (st === 3) {
+      h += '<h2>Tus comidas</h2><div class="row">' + dxSel('dx_comidas', 'Comidas al día', [[3,'3 comidas'],[4,'4 comidas'],[5,'5 comidas']], d.comidas) +
+        dxSel('dx_dieta', 'Alimentación', [['omni','Omnívora'],['vegetariana','Vegetariana'],['vegana','Vegana']], d.dieta) + '</div>' +
+        '<div class="f" style="font-size:13px;color:var(--muted)">Alergias o intolerancias</div>' + dxChips('dx_excl', EXCL_OPTS, d.excl) +
+        '<label class="f">Alimentos que no te gustan (opcional)<input type="text" id="dx_noGusta" maxlength="140" value="' + esc(d.noGusta) + '" autocomplete="off"></label>' +
+        '<div class="f" style="font-size:13px;color:var(--muted)">Salud: marca lo que se aplique</div>' + dxChips('dx_salud', SALUD_OPTS, d.salud, true) +
+        '<label class="consent"><input type="checkbox" id="dx_consent"' + (d.consent ? ' checked' : '') + '><span>Acepto que estos datos se usen para calcular mi diagnóstico. No se guardan en ningún servidor: solo los recibe mi coach si los envío por WhatsApp.</span></label>';
+    }
+    if (st === 4) h += dxResult(d);
+    if (st >= 1 && st <= 3) h += '<div class="err" role="alert">' + esc(x.err || '') + '</div><div class="dx-nav"><button class="btn small" data-dx="back">Atrás</button><button class="btn primary" data-dx="next">' + (st === 3 ? 'Ver mi resultado' : 'Siguiente') + '</button></div>';
+    return h + '</div>';
+  }
+  function dxResult(d) {
+    var first = esc(d.nombre.split(' ')[0]);
+    if (MN.healthBlock(d)) return '<h2>' + first + ', tu caso necesita un profesional sanitario</h2><p class="meta">Por la información de salud que has marcado, este programa orientativo no es para ti. Te recomendamos acudir a un dietista-nutricionista colegiado o a tu médico.</p>' +
+      '<button class="btn small" data-dx="restart">Volver a empezar</button>';
+    var t = MN.calc(d), g = MN.goalPlan(d), tr = MN.training(d);
+    var range = d.objetivo === 'man' ? 'Peso estable (±1 kg) con menos cintura y más fuerza' :
+      (d.objetivo === 'def' ? signedKg(g.hi) + ' a ' + signedKg(g.lo) : signedKg(g.lo) + ' a ' + signedKg(g.hi)) + ' en 12 semanas';
+    var h = '<div class="card-k">Tu punto de partida</div><h2>' + first + ', esto es lo que necesitas</h2>' +
+      '<div class="kpis"><div><div class="kcal">' + n0(t.kcal) + '<small>kcal al día</small></div></div>' +
+      macro('Proteína', t.p, t.p * 4 / t.kcal) + macro('Carbohidratos', t.c, t.c * 4 / t.kcal) + macro('Grasas', t.f, t.f * 9 / t.kcal) + '</div>' +
+      '<div class="dx-res"><div class="card-k">Meta realista</div><div class="goal-range">' + range + '</div>' +
+      (g.weeksNeeded ? '<p class="meta" style="margin:0">Tu meta de ' + fmtKg(g.meta) + ' está a unas ' + g.weeksNeeded + ' semanas a un ritmo saludable.</p>' : '') +
+      g.notes.map(function (n) { return '<div class="note">' + esc(n) + '</div>'; }).join('') + '</div>' +
+      '<div class="dx-res"><div class="card-k">Tu entreno</div><p style="margin:0">' + (tr.start ? 'Empezar con 2 días' : tr.sessions.length + ' días') + ' de fuerza ' + (tr.lugar === 'casa' ? 'en casa' : 'en el gimnasio') + ': ' +
+      tr.sessions.map(function (x) { return x.name.toLowerCase() + ' ' + x.focus.toLowerCase(); }).join(', ') + '. Y ' + tr.steps + ' pasos al día.</p></div>' +
+      '<div class="dx-res"><div class="card-k">Con el programa de 12 semanas</div><ul class="dx-list"><li>Tu menú semanal con recetas y opciones equivalentes</li><li>Lista de la compra con lo que vas a gastar</li><li>Una lección y un reto cada semana</li><li>Seguimiento de peso, agua, entreno y adherencia</li><li>Revisión con tu coach por WhatsApp</li></ul></div>';
+    var msg = 'Hola, he hecho el diagnóstico de MetaNutrición. Soy ' + d.nombre + ', ' + d.edad + ' años. Quiero ' + {def: 'perder grasa', man: 'mantenerme y mejorar', vol: 'ganar músculo'}[d.objetivo] +
+      (d.motivo ? ' («' + d.motivo + '»)' : '') + '. Me interesa el programa de 12 semanas.\n\nCódigo para mi coach: ' + dxCode(d);
+    h += '<a class="btn primary" target="_blank" rel="noopener" href="https://wa.me/' + esc(CONFIG.whatsapp || '') + '?text=' + encodeURIComponent(msg) + '">Enviar a mi coach por WhatsApp</a>' +
+      '<p class="meta" style="margin:0">Estimación orientativa para adultos sanos. No sustituye el consejo de un profesional sanitario.</p>' +
+      '<button class="btn small" data-dx="restart">Volver a empezar</button>';
+    return h;
+  }
+  // Coach: rellena el formulario con el código MN1 que envía el cliente.
+  function dxImport(txt) {
+    var m = String(txt || '').match(/MN1\.([\w\-]+)/), o;
+    try { o = JSON.parse(new TextDecoder().decode(unb64u(m[1]))); } catch (e) { return false; }
+    if (!o || typeof o !== 'object') return false;
+    var str = function (x, n) { return typeof x === 'string' ? x.slice(0, n) : ''; }, nb = function (x) { var v = parseFloat(x); return isFinite(v) ? v : ''; };
+    var pick = function (x, opts, def) { return opts.indexOf(String(x)) >= 0 ? String(x) : def; };
+    var d = {nombre: str(o.nombre, 60), sexo: pick(o.sexo, ['m','h'], 'm'), edad: nb(o.edad), altura: nb(o.altura), peso: nb(o.peso),
+      actividad: pick(o.actividad, ['1.2','1.375','1.55','1.725','1.9'], '1.375'), objetivo: pick(o.objetivo, ['def','man','vol'], 'def'), nivel: pick(o.nivel, ['ini','int','ava'], 'ini'),
+      comidas: pick(o.comidas, ['3','4','5'], '4'), dieta: pick(o.dieta, ['omni','vegetariana','vegana'], 'omni'),
+      excl: (Array.isArray(o.excl) ? o.excl : []).filter(function (x) { return EXCL_OPTS.some(function (e) { return e[0] === x; }); }),
+      noGusta: str(o.noGusta, 140), meta: nb(o.meta), entreno: pick(o.entreno, ['0','2','3','4','5','6'], '3'), lugar: pick(o.lugar, ['gym','casa'], 'gym'),
+      motivo: str(o.motivo, 140), salud: [], consent: true};
+    fillForm(d);
+    return true;
   }
 
   /* ---------- Firma ECDSA P-256 (WebCrypto) ---------- */
@@ -1767,6 +1912,11 @@ if (typeof module !== 'undefined') module.exports = MN;
     if (e.target.id === 'retoChk') { prog.reto[progWeek()] = e.target.checked ? 1 : 0; saveProg(); return; }
     if (e.target.id === 'simWeek' || e.target.id === 'simSunday') { state.sim = {week: +$('simWeek').value, sunday: $('simSunday').checked}; render(); }
   });
+  $('dxLoad').addEventListener('click', function () {
+    var okIn = dxImport($('dxIn').value);
+    $('dxErr').textContent = okIn ? '' : 'No encuentro un código MN1 válido en el texto.';
+    if (okIn) { $('dxIn').value = ''; $('nombre').focus(); }
+  });
   $('result').addEventListener('input', function (e) { if (e.target.id === 'keyIn' && $('keyErr')) $('keyErr').textContent = ''; });
   $('result').addEventListener('click', function (e) {
     var b = e.target.closest('button'); if (!b) return;
@@ -1782,6 +1932,15 @@ if (typeof module !== 'undefined') module.exports = MN;
       prog.lessons[state.lesson] = {read: 1, score: sc}; saveProg(); state.lesson = 0; render(); return;
     }
     if (b.dataset.water) { var td = todayISO(); prog.water[td] = Math.max(0, (prog.water[td] || 0) + +b.dataset.water); saveProg(); render(); return; }
+    if (b.dataset.dxgoal) { dxRead(); state.dx.d.objetivo = b.dataset.dxgoal; state.dx.err = ''; render(); return; }
+    if (b.dataset.dx) {
+      var dx = state.dx;
+      if (b.dataset.dx === 'restart') { state.dx = null; render(); window.scrollTo(0, 0); return; }
+      dxRead();
+      if (b.dataset.dx === 'back') { dx.step = Math.max(0, dx.step - 1); dx.err = ''; }
+      else { dx.err = dxCheck(dx.step); if (!dx.err) dx.step++; }
+      render(); window.scrollTo(0, 0); return;
+    }
     if (b.id === 'toggleTrain') { var t3 = todayISO(); prog.train = prog.train || {}; if (prog.train[t3]) delete prog.train[t3]; else prog.train[t3] = 1; saveProg(); render(); return; }
     if (b.id === 'toggleDone') { var t2 = todayISO(); if (prog.done[t2]) delete prog.done[t2]; else prog.done[t2] = 1; saveProg(); render(); return; }
     if (b.id === 'saveKg') { var kg = parseFloat(String($('kgIn').value).replace(',', '.')); if (kg >= 35 && kg <= 250) { prog.w[progWeek()] = kg; saveProg(); render(); } else $('kgIn').focus(); return; }
@@ -1848,6 +2007,7 @@ if (typeof module !== 'undefined') module.exports = MN;
   }
   function start() {
     loadCoachKey();
+    if (/^#diagnostico/.test(location.hash)) { state.mode = 'dx'; state.dx = null; render(); return; }
     var tok = tokenFromUrl();
     if (tok) { enterClient(tok, false); return; }
     var stored = lsGet(CLIENTSTORE);
@@ -1864,6 +2024,7 @@ if (typeof module !== 'undefined') module.exports = MN;
     if (saved) { state.d = saved.d; state.week = saved.week; state.isExample = saved.isExample; fillForm(saved.d); render(); }
     else { fillForm(EXAMPLE); generate(EXAMPLE, true); }
   }
+  window.addEventListener('hashchange', function () { if (/^#diagnostico/.test(location.hash)) { state.mode = 'dx'; state.dx = null; render(); window.scrollTo(0, 0); } });
   start();
 })();
 </script>
