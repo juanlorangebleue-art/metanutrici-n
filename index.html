@@ -1985,6 +1985,8 @@ if (typeof module !== 'undefined') module.exports = MN;
     if (b.id === 'importKey') { importKey(); return; }
     if (b.id === 'copyBtn') { copyText(JSON.stringify({v: 1, d: state.d, week: state.week}), 'copyMsg', 'Ficha copiada.', 'fichaIn'); return; }
     if (b.id === 'loadBtn') {
+      // Un diagnóstico (código MN1) pegado aquí también vale: se rellena el formulario como en «Rellenar con el diagnóstico».
+      if (/MN1\./.test($('fichaIn').value)) { $('dxIn').value = $('fichaIn').value; $('fichaIn').value = ''; $('dxLoad').click(); window.scrollTo(0, 0); return; }
       try {
         var o = JSON.parse($('fichaIn').value);
         if (!o || !o.d || !o.week) throw 0;
