@@ -1915,7 +1915,14 @@ if (typeof module !== 'undefined') module.exports = MN;
   $('dxLoad').addEventListener('click', function () {
     var okIn = dxImport($('dxIn').value);
     $('dxErr').textContent = okIn ? '' : 'No encuentro un código MN1 válido en el texto.';
-    if (okIn) { $('dxIn').value = ''; $('nombre').focus(); }
+    if (!okIn) return;
+    $('dxIn').value = '';
+    // Si los datos son válidos, genera el plan directamente; si no, muestra qué revisar.
+    var d = readForm(), err = validate(d);
+    $('formErr').textContent = err;
+    if (err) { $('nombre').focus(); return; }
+    generate(d, false); state.tab = 'objetivo'; render();
+    $('result').scrollIntoView({behavior: 'smooth', block: 'start'});
   });
   $('result').addEventListener('input', function (e) { if (e.target.id === 'keyIn' && $('keyErr')) $('keyErr').textContent = ''; });
   $('result').addEventListener('click', function (e) {
