@@ -10,6 +10,14 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>MetaNutrición</title>
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="MetaNutrición">
+<meta property="og:title" content="MetaNutrición · Diagnóstico gratis en 2 minutos">
+<meta property="og:description" content="Descubre tus calorías, tu ritmo saludable y cómo entrenar. Programa de hábitos de 12 semanas con seguimiento por WhatsApp.">
+<meta property="og:url" content="https://app.metanutricion.es/">
+<meta property="og:image" content="https://app.metanutricion.es/icon-512.png">
+<meta property="og:locale" content="es_ES">
+<meta name="twitter:card" content="summary">
 <meta name="theme-color" content="#0A0F0D">
 <link rel="stylesheet" href="fonts/fonts.css">
 <style>
@@ -364,6 +372,20 @@ body.client .disclaimer { max-width: 720px; }
   #printArea .poster { width: 100%; padding: 0; }
 }
 #printArea { display: none; }
+.tagm { display: inline-block; font-size: 11px; font-weight: 600; color: var(--mint); border: 1px solid var(--line); border-radius: 999px; padding: 0 7px; margin-left: 4px; vertical-align: 1px; }
+details.how { margin-top: 8px; font-size: 14px; }
+details.how summary, details.tm summary { cursor: pointer; color: var(--mint); font-weight: 600; min-height: 32px; display: flex; align-items: center; gap: 8px; }
+details.how ol { margin: 6px 0 0; padding-left: 20px; color: var(--ink); display: grid; gap: 4px; }
+details.tm { border-top: 1px solid var(--line); padding: 6px 0; }
+details.tm summary { color: var(--ink); font-weight: 500; flex-wrap: wrap; }
+details.tm summary .meta { width: 100%; font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.06em; }
+details.tm .items { margin: 6px 0 0; }
+.card.wide { grid-column: 1 / -1; }
+.coach-card { display: flex; gap: 12px; align-items: center; border: 1px solid var(--line); border-radius: var(--r); padding: 12px 14px; background: var(--surface-2); }
+.coach-pic { flex: 0 0 56px; width: 56px; height: 56px; border-radius: 50%; object-fit: cover; display: grid; place-items: center; background: var(--brand); color: #04130d; font: 700 20px var(--font-display); }
+.offer { border: 1px solid var(--brand); border-radius: var(--r); padding: 14px; background: color-mix(in srgb, var(--brand) 8%, var(--surface)); }
+.offer-price { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.offer-price b { font: 700 34px/1 var(--font-display); color: var(--mint); }
 </style>
 </head>
 <body>
@@ -371,7 +393,7 @@ body.client .disclaimer { max-width: 720px; }
 
 <header class="topbar">
   <div class="logo">Meta<b>Nutrición</b></div>
-  <span class="tag">Hábitos · Entrenamiento · Resultados</span>
+  <span class="tag">Hábitos · Entrenamiento · Constancia</span>
   <span class="spacer"></span>
   <span class="example" id="exampleBadge">Datos de ejemplo</span>
   <span class="pill" id="goalPill">Definición</span>
@@ -501,7 +523,11 @@ var CONFIG = {
   amazonTag: '',       // tu identificador de afiliado de Amazon, si lo tienes
   imgBase: '',         // carpeta con tus fotos de producto (p. ej. 'img/'): img/pollo.jpg, img/arroz.jpg...
   freeDay: 5,          // día de la comida libre: 0 lunes ... 5 sábado, 6 domingo
-  revoked: []          // códigos de enlaces anulados, p. ej. ['k3x9pq']: ese enlace deja de abrir la app
+  revoked: [],         // códigos de enlaces anulados, p. ej. ['k3x9pq']: ese enlace deja de abrir la app
+  precio: 45,          // precio del programa de 12 semanas en euros
+  plazasLibres: 15,    // plazas fundadoras que quedan (cámbialo a mano; 0 oculta el aviso)
+  garantiaDias: 7,     // días de garantía de devolución
+  coach: {nombre: 'Juan Morales', texto: 'Coach de hábitos. Dirijo un gimnasio en Madrid y te acompaño por WhatsApp durante las 12 semanas.', foto: ''}  // foto: p. ej. 'coach.jpg' subida al repositorio
 };
 </script>
 
@@ -667,49 +693,199 @@ var MN = (function () {
     pimientos:{n:'pimientos',p:1,c:5,f:0.3,t:[],s:V},
     champi:{n:'champiñones',p:3,c:1,f:0.3,t:[],s:V},
     esparragos:{n:'espárragos verdes',p:2.2,c:2,f:0.1,t:[],s:V},
-    tomate:{n:'tomate',p:0.9,c:3,f:0.2,t:[],s:V}
+    tomate:{n:'tomate',p:0.9,c:3,f:0.2,t:[],s:V},
+    cebolla:{n:'cebolla',p:1.2,c:7,f:0.2,t:[],s:V},
+    ajo:{n:'ajo',p:6,c:28,f:0.5,t:[],s:V},
+    zanahoria:{n:'zanahoria',p:0.9,c:8,f:0.2,t:[],s:V},
+    naranja:{n:'naranja',p:0.9,c:9,f:0.1,t:[],s:V},
+    kiwi:{n:'kiwi',p:1.1,c:11,f:0.5,t:[],s:V},
+    sardinas:{n:'sardinas en lata (escurridas)',p:24,c:0,f:11,t:['pescado'],s:'Despensa'},
+    caballa:{n:'caballa en lata al natural (escurrida)',p:22,c:0,f:9,t:['pescado'],s:'Despensa'},
+    alubias:{n:'alubias cocidas',p:7,c:14,f:0.5,t:[],s:'Despensa'},
+    queso:{n:'queso fresco tipo Burgos light',p:12.5,c:3,f:4,t:['lacteo'],s:'Huevos y lácteos'},
+    leche:{n:'leche semidesnatada',p:3.2,c:4.7,f:1.6,t:['lacteo'],s:'Huevos y lácteos'}
   };
-  // Tope de gramos por comida para que las raciones sean realistas.
-  var MAXG = {aove:30, nueces:40, almendras:40, cacahuete:35, aguacate:120, whey:45, protveg:45, avena:110, pan:140, tortitas:90, arroz:160, pasta:160, quinoa:150, platano:200, frutosr:250, manzana:250, patata:600, boniato:500, soja:400};
-  var capScale = 1;
+  // Raciones realistas por comida [mínimo, máximo] en gramos, pensadas en medidas caseras (1 plátano, medio aguacate, 1 o 2 latas).
+  // Así el menú nunca pide cantidades difíciles de comer: si faltan calorías, se añade un acompañamiento en vez de inflar un alimento.
+  var BOUNDS = {
+    pollo:[100,200], pavo:[80,180], ternera:[100,180], cerdo:[100,180], salmon:[100,170], merluza:[120,250], atun:[52,156], sardinas:[50,120], caballa:[60,125],
+    claras:[60,250], tofu:[80,200], yogurp:[120,250], batido:[100,250], whey:[20,35], protveg:[20,35], soja:[150,300], leche:[150,300], queso:[60,150], guisante:[80,200],
+    tortitas:[20,60], lentejas:[150,300], garbanzos:[120,300], alubias:[150,300], arroz:[40,110], pasta:[50,110], quinoa:[40,100], patata:[100,350], boniato:[100,300],
+    avena:[30,80], pan:[30,120], platano:[80,150], manzana:[120,200], naranja:[130,220], kiwi:[70,150], frutosr:[60,150],
+    aove:[5,20], aguacate:[30,80], nueces:[10,30], almendras:[10,30], cacahuete:[10,25]
+  };
+  // En desayunos y tentempiés las raciones son menores.
+  var BOUNDS_SLOT = {
+    des:{pavo:[40,100], atun:[52,104], patata:[80,200], pan:[30,100], claras:[60,200], tofu:[80,150]},
+    snk:{pavo:[40,80], atun:[52,104], pan:[25,70], yogurp:[100,200], batido:[80,200], claras:[60,150], queso:[50,120], avena:[25,60], soja:[150,250], garbanzos:[60,150],
+         platano:[60,150], manzana:[100,200], kiwi:[70,150], frutosr:[50,150], tortitas:[20,40], nueces:[5,25], almendras:[5,25], cacahuete:[5,20], aguacate:[20,60]}
+  };
+  function bounds(id, slot) { var o = BOUNDS_SLOT[slot] && BOUNDS_SLOT[slot][id]; return o || BOUNDS[id] || [10, 200]; }
+  // Acompañamientos que se añaden solo cuando hacen falta calorías (pan o fruta de postre).
+  var SIDES = {pri:['pan'], des:['naranja','kiwi','platano','pan'], snk:['manzana','kiwi','platano']};
+  // Medidas caseras para leer el menú sin báscula.
+  var UNITS = {huevo:[60,'huevo','huevos','m'], atun:[52,'lata','latas','f'], sardinas:[85,'lata','latas','f'], caballa:[85,'lata','latas','f'], platano:[120,'plátano','plátanos','m'],
+    manzana:[170,'manzana','manzanas','f'], naranja:[180,'naranja','naranjas','f'], kiwi:[90,'kiwi','kiwis','m'], pan:[30,'rebanada','rebanadas','f'], tortitas:[10,'tortita','tortitas','f'],
+    yogurp:[125,'yogur','yogures','m'], aguacate:[160,'aguacate','aguacates','m'], aove:[10,'cucharada','cucharadas','f'], nueces:[5,'nuez','nueces','f'], cacahuete:[15,'cucharada','cucharadas','f'],
+    whey:[30,'cacito','cacitos','m'], protveg:[30,'cacito','cacitos','m'], leche:[250,'vaso','vasos','m'], soja:[250,'vaso','vasos','m']};
+  // Pasos genéricos para las combinaciones automáticas, según cómo se cocina cada alimento.
+  var COOK = {pollo:'Haz el pollo a la plancha con el aceite, 4 o 5 minutos por lado.', pavo:'Haz el pavo a la plancha, 3 minutos por lado.', ternera:'Haz la ternera a la plancha, 2 o 3 minutos por lado.',
+    cerdo:'Haz el lomo a la plancha, 3 minutos por lado.', salmon:'Haz el salmón a la plancha o al horno (12 minutos a 200 °C).', merluza:'Haz la merluza a la plancha, 3 minutos por lado.',
+    atun:'Escurre el atún.', claras:'Cuaja el huevo y las claras batidos en una sartén con unas gotas de aceite.', tofu:'Dora el tofu en dados en la sartén 6 minutos.',
+    lentejas:'Calienta las lentejas cocidas con pimentón y un chorrito de agua 5 minutos.', guisante:'Hidrata la proteína texturizada 10 minutos y saltéala con tomate.',
+    yogurp:'Pon el yogur en un bol.', batido:'Pon el queso batido en un bol.', whey:'Mezcla la proteína con agua o leche en una botella.', protveg:'Mezcla la proteína con bebida de soja en una botella.',
+    arroz:'Cuece el arroz 15 minutos en agua con sal.', patata:'Cuece la patata en dados 12 minutos (o 6 en el microondas).', boniato:'Asa el boniato en dados 25 minutos a 200 °C (o 8 en el microondas).',
+    quinoa:'Lava la quinoa y cuécela 15 minutos.', pasta:'Cuece la pasta el tiempo del paquete.', avena:'Añade la avena.', platano:'Corta el plátano en rodajas.', tortitas:'Acompaña con las tortitas de arroz.',
+    pan:'Tuesta el pan.', brocoli:'Cuece el brócoli al vapor o en el microondas 5 minutos.', judias:'Cuece las judías verdes 8 minutos.', calabacin:'Saltea el calabacín en dados 4 minutos.',
+    pimientos:'Saltea los pimientos en tiras 8 minutos.', espinacas:'Saltea las espinacas 2 minutos.', esparragos:'Haz los espárragos a la plancha 5 minutos.', champi:'Saltea los champiñones 4 minutos.',
+    ensalada:'Lava la ensalada.', tomate:'Corta el tomate.'};
+  function steps(rec) {
+    if (rec.st) return rec.st;
+    var out = [];
+    [rec.c].concat(Object.keys(rec.fx)).concat([rec.p]).forEach(function (id) { if (COOK[id] && out.indexOf(COOK[id]) < 0) out.push(COOK[id]); });
+    out.push(rec.f === 'aove' ? 'Aliña o cocina con el aceite de oliva y sirve.' : 'Sirve con el ' + (FOODS[rec.f] ? FOODS[rec.f].n : '') + ' por encima.');
+    return out;
+  }
+  // Medida casera en español: «medio plátano», «1 plátano y medio», «3 rebanadas y media».
+  function homeUnit(id, g) {
+    var u = UNITS[id]; if (!u) return '';
+    var r = Math.round(g / u[0] * 2) / 2, half = u[3] === 'f' ? 'media' : 'medio';
+    if (id === 'aguacate') return g <= 50 ? '¼ de aguacate' : (g <= 95 ? 'medio aguacate' : (g <= 135 ? '¾ de aguacate' : '1 aguacate'));
+    if (r < 0.5) return '';
+    if (r === 0.5) return half + ' ' + u[1];
+    var n = Math.floor(r);
+    return n + ' ' + (n > 1 ? u[2] : u[1]) + (r > n ? ' y ' + half : '');
+  }
+  var curSlot = 'pri', curD = null;
+  // Fruta de postre en la comida (y también en la cena si solo hay 3 comidas): así se llega a 2 o 3 piezas al día.
+  var DESSERT = [['naranja',180],['manzana',170],['kiwi',100],['naranja',180],['manzana',170],['kiwi',100],['manzana',170]];
+  function slotTarget(t, d, si, day) {
+    var s = SLOTS[d.comidas][si], target = {p: t.p * s[2], c: t.c * s[2], f: t.f * s[2]}, extra = [];
+    var priIdx = SLOTS[d.comidas].map(function (x) { return x[0]; }).indexOf('pri');
+    if (s[0] === 'pri' && (si === priIdx || d.comidas === 3)) {
+      var opts = DESSERT.filter(function (x) { return !curD || sideOk(x[0], {p:'',c:'',f:'',fx:{}}); });
+      if (opts.length) {
+        var fr = opts[((day || 0) + si) % opts.length], fd = FOODS[fr[0]];
+        extra.push({id: fr[0], g: fr[1], fixed: true, dessert: true});
+        target = {p: target.p - fd.p * fr[1] / 100, c: target.c - fd.c * fr[1] / 100, f: target.f - fd.f * fr[1] / 100};
+      }
+    }
+    return {target: target, extra: extra};
+  }
 
-  // Recetas: p = fuente de proteína, c = carbohidrato, f = grasa; fx = cantidades fijas (verdura, huevo entero).
+  // Recetas: p = fuente de proteína, c = carbohidrato, f = grasa (los tres siempre presentes); fx = cantidades fijas.
+  // cat = grupo para equilibrar la semana (pescado, azul, legumbre, ave, roja, huevo, vegetal, lacteo); sup = lleva proteína en polvo;
+  // vg = pensada para dieta vegetal (no se ofrece a omnívoros); old = ya no se elige para menús nuevos, se conserva para enlaces antiguos.
+  // st = pasos de preparación; min = minutos aproximados.
   var RECIPES = [
-    {id:'d1',slot:'des',n:'Tortilla de claras y huevo con tostada integral y tomate',p:'claras',c:'pan',f:'aove',fx:{huevo:60,tomate:100},k:'huevo'},
-    {id:'d2',slot:'des',n:'Porridge de avena con proteína y frutos rojos',p:'whey',c:'avena',f:'almendras',fx:{frutosr:80},k:'whey'},
-    {id:'d3',slot:'des',n:'Yogur proteico con avena, plátano y nueces',p:'yogurp',c:'avena',f:'nueces',fx:{platano:60},k:'yogur'},
-    {id:'d4',slot:'des',n:'Tostadas integrales con pavo, aguacate y tomate',p:'pavo',c:'pan',f:'aguacate',fx:{tomate:80},k:'pavo'},
-    {id:'d5',slot:'des',n:'Revuelto de huevo con champiñones y pan integral',p:'claras',c:'pan',f:'aove',fx:{huevo:60,champi:100},k:'huevo'},
-    {id:'d6',slot:'des',n:'Tostadas con tofu revuelto, tomate y aguacate',p:'tofu',c:'pan',f:'aguacate',fx:{tomate:80},k:'tofu'},
-    {id:'d7',slot:'des',n:'Bebida de soja con avena, plátano y crema de cacahuete',p:'soja',c:'avena',f:'cacahuete',fx:{platano:60},k:'soja'},
-    {id:'d8',slot:'des',n:'Batido de proteína vegetal con plátano y crema de cacahuete',p:'protveg',c:'platano',f:'cacahuete',fx:{},k:'protveg'},
-    {id:'d9',slot:'des',n:'Tortitas de arroz con pavo y aguacate',p:'pavo',c:'tortitas',f:'aguacate',fx:{tomate:60},k:'pavo'},
-    {id:'d10',slot:'des',n:'Yogur proteico con frutos rojos, plátano y almendras',p:'yogurp',c:'platano',f:'almendras',fx:{frutosr:80},k:'yogur'},
-    {id:'d11',slot:'des',n:'Revuelto de huevo con patata y espinacas',p:'claras',c:'patata',f:'aove',fx:{huevo:60,espinacas:80},k:'huevo'},
-    {id:'d12',slot:'des',n:'Porridge de quinoa con proteína vegetal, manzana y nueces',p:'protveg',c:'quinoa',f:'nueces',fx:{manzana:80},k:'protveg'},
-    {id:'p1',slot:'pri',n:'Pollo a la plancha con arroz y brócoli',p:'pollo',c:'arroz',f:'aove',fx:{brocoli:150},k:'pollo'},
-    {id:'p2',slot:'pri',n:'Salmón al horno con patata y espárragos',p:'salmon',c:'patata',f:'aove',fx:{esparragos:150},k:'salmon'},
-    {id:'p3',slot:'pri',n:'Ternera a la plancha con boniato asado y judías verdes',p:'ternera',c:'boniato',f:'aove',fx:{judias:150},k:'ternera'},
-    {id:'p4',slot:'pri',n:'Merluza al horno con patata y pimientos asados',p:'merluza',c:'patata',f:'aove',fx:{pimientos:150},k:'merluza'},
-    {id:'p5',slot:'pri',n:'Pavo salteado con quinoa y calabacín',p:'pavo',c:'quinoa',f:'aove',fx:{calabacin:150},k:'pavo'},
-    {id:'p6',slot:'pri',n:'Lomo de cerdo con arroz y champiñones',p:'cerdo',c:'arroz',f:'aove',fx:{champi:120},k:'cerdo'},
-    {id:'p7',slot:'pri',n:'Pasta integral con atún y tomate',p:'atun',c:'pasta',f:'aove',fx:{tomate:120},k:'atun'},
-    {id:'p8',slot:'pri',n:'Ensalada de garbanzos con atún, tomate y aguacate',p:'atun',c:'garbanzos',f:'aguacate',fx:{ensalada:100,tomate:80},k:'atun'},
-    {id:'p9',slot:'pri',n:'Ensalada templada de pollo con patata y aguacate',p:'pollo',c:'patata',f:'aguacate',fx:{ensalada:120},k:'pollo'},
-    {id:'p10',slot:'pri',n:'Tortilla de patata y espinacas',p:'claras',c:'patata',f:'aove',fx:{huevo:120,espinacas:100},k:'huevo'},
-    {id:'p11',slot:'pri',n:'Tofu salteado con arroz y verduras',p:'tofu',c:'arroz',f:'aove',fx:{pimientos:100,calabacin:100},k:'tofu'},
-    {id:'p12',slot:'pri',n:'Lentejas estofadas con arroz y verduras',p:'lentejas',c:'arroz',f:'aove',fx:{pimientos:80,calabacin:80},k:'lentejas'},
-    {id:'p13',slot:'pri',n:'Salmón a la plancha con quinoa y espinacas',p:'salmon',c:'quinoa',f:'aove',fx:{espinacas:120},k:'salmon'},
-    {id:'p14',slot:'pri',n:'Boloñesa de proteína de guisante con pasta integral',p:'guisante',c:'pasta',f:'aove',fx:{tomate:120},k:'guisante'},
-    {id:'p15',slot:'pri',n:'Chili de proteína de guisante con arroz y aguacate',p:'guisante',c:'arroz',f:'aguacate',fx:{pimientos:100},k:'guisante'},
-    {id:'s1',slot:'snk',n:'Yogur proteico con plátano y nueces',p:'yogurp',c:'platano',f:'nueces',fx:{},k:'yogur'},
-    {id:'s2',slot:'snk',n:'Queso batido con frutos rojos y almendras',p:'batido',c:'frutosr',f:'almendras',fx:{},k:'batido'},
-    {id:'s3',slot:'snk',n:'Tostada integral con pavo y aceite',p:'pavo',c:'pan',f:'aove',fx:{},k:'pavo'},
-    {id:'s4',slot:'snk',n:'Batido de proteína con plátano y crema de cacahuete',p:'whey',c:'platano',f:'cacahuete',fx:{},k:'whey'},
-    {id:'s5',slot:'snk',n:'Bebida de soja con proteína vegetal, manzana y almendras',p:'protveg',c:'manzana',f:'almendras',fx:{soja:200},k:'protveg'},
-    {id:'s7',slot:'snk',n:'Batido de proteína vegetal con frutos rojos y almendras',p:'protveg',c:'frutosr',f:'almendras',fx:{},k:'protveg'},
-    {id:'s8',slot:'snk',n:'Tortitas de arroz con atún y aguacate',p:'atun',c:'tortitas',f:'aguacate',fx:{},k:'atun'},
-    {id:'s6',slot:'snk',n:'Tortitas de avena con claras y frutos rojos',p:'claras',c:'avena',f:'aove',fx:{frutosr:80},k:'huevo'}
+    {id:'d1',slot:'des',n:'Tortilla de claras y huevo con tostada integral y tomate',p:'claras',c:'pan',f:'aove',fx:{huevo:60,tomate:100},k:'huevo',cat:'huevo',min:10,
+     st:['Bate el huevo con las claras y una pizca de sal.','Cuaja la tortilla en una sartén con el aceite, 2 minutos por cada lado.','Tuesta el pan y acompaña con el tomate en rodajas o rallado.']},
+    {id:'d2',slot:'des',n:'Porridge de avena con leche, proteína y frutos rojos',p:'whey',c:'avena',f:'almendras',fx:{leche:200,frutosr:80},k:'whey',cat:'lacteo',sup:1,min:8,
+     st:['Cuece la avena con la leche 3 o 4 minutos a fuego medio, removiendo.','Aparta del fuego, deja templar un minuto y mezcla la proteína.','Sirve con los frutos rojos y las almendras troceadas.']},
+    {id:'d3',slot:'des',n:'Yogur proteico con avena, plátano y nueces',p:'yogurp',c:'avena',f:'nueces',fx:{platano:100},k:'yogur',cat:'lacteo',min:3,
+     st:['Pon el yogur en un bol y añade la avena.','Corta el plátano en rodajas y trocea las nueces por encima.']},
+    {id:'d4',slot:'des',n:'Tostadas integrales con pavo, aguacate y tomate',p:'pavo',c:'pan',f:'aguacate',fx:{tomate:80},k:'pavo',cat:'ave',min:7,
+     st:['Tuesta el pan.','Haz el pavo a la plancha 2 minutos por lado (o usa fiambre de pavo con más del 90 % de carne).','Unta el aguacate machacado y termina con el pavo y el tomate en rodajas.']},
+    {id:'d5',slot:'des',n:'Revuelto de huevo con champiñones y pan integral',p:'claras',c:'pan',f:'aove',fx:{huevo:60,champi:100},k:'huevo',cat:'huevo',min:10,
+     st:['Saltea los champiñones laminados con el aceite 4 minutos.','Añade el huevo y las claras batidos y remueve a fuego suave hasta que cuajen.','Sirve con el pan tostado.']},
+    {id:'d6',slot:'des',n:'Tostadas con tofu revuelto, tomate y aguacate',p:'tofu',c:'pan',f:'aguacate',fx:{tomate:80},k:'tofu',cat:'vegetal',min:10,
+     st:['Desmenuza el tofu con un tenedor y saltéalo 5 minutos con una pizca de cúrcuma, sal y pimienta.','Tuesta el pan y unta el aguacate.','Pon encima el tofu y el tomate en rodajas.']},
+    {id:'d7',slot:'des',n:'Porridge de avena con bebida de soja, plátano y crema de cacahuete',p:'soja',c:'avena',f:'cacahuete',fx:{platano:100},k:'soja',cat:'vegetal',vg:1,min:8,
+     st:['Cuece la avena con la bebida de soja 3 o 4 minutos, removiendo.','Sirve con el plátano en rodajas y la crema de cacahuete por encima.']},
+    {id:'d8',slot:'des',n:'Batido de proteína vegetal con bebida de soja, plátano y crema de cacahuete',p:'protveg',c:'platano',f:'cacahuete',fx:{soja:250},k:'protveg',cat:'vegetal',sup:1,vg:1,min:3,
+     st:['Pon todo en la batidora con unos cubitos de hielo.','Bate 30 segundos y sírvelo al momento.']},
+    {id:'d9',slot:'des',n:'Tortitas de arroz con pavo, aguacate y tomate',p:'pavo',c:'tortitas',f:'aguacate',fx:{tomate:60},k:'pavo',cat:'ave',min:5,
+     st:['Unta las tortitas con el aguacate machacado.','Pon encima el pavo y el tomate en rodajas.']},
+    {id:'d10',slot:'des',n:'Yogur proteico con frutos rojos, plátano y almendras',p:'yogurp',c:'platano',f:'almendras',fx:{frutosr:80},k:'yogur',cat:'lacteo',min:3,
+     st:['Pon el yogur en un bol.','Añade el plátano en rodajas, los frutos rojos y las almendras troceadas.']},
+    {id:'d11',slot:'des',n:'Revuelto de huevo con patata y espinacas',p:'claras',c:'patata',f:'aove',fx:{huevo:60,espinacas:80},k:'huevo',cat:'huevo',min:15,
+     st:['Corta la patata en dados pequeños y hazla 6 minutos en el microondas o 10 en la sartén con el aceite.','Añade las espinacas hasta que se ablanden.','Incorpora el huevo y las claras batidos y remueve hasta que cuajen.']},
+    {id:'d12',slot:'des',n:'Porridge de quinoa con proteína vegetal, manzana y nueces',p:'protveg',c:'quinoa',f:'nueces',fx:{manzana:80},k:'protveg',cat:'vegetal',sup:1,vg:1,old:1,min:20,
+     st:['Cuece la quinoa 15 minutos y escúrrela.','Mezcla con la proteína, la manzana troceada y las nueces.']},
+    {id:'d13',slot:'des',n:'Tostadas integrales con queso fresco, tomate y aceite de oliva',p:'queso',c:'pan',f:'aove',fx:{tomate:100},k:'queso',cat:'lacteo',min:5,
+     st:['Tuesta el pan y riégalo con el aceite.','Pon el tomate rallado o en rodajas y el queso fresco en lonchas.']},
+    {id:'d14',slot:'des',n:'Leche con copos de avena, kiwi y nueces',p:'leche',c:'avena',f:'nueces',fx:{kiwi:90},k:'leche',cat:'lacteo',min:3,
+     st:['Pon la avena en un bol con la leche fría o templada.','Añade el kiwi troceado y las nueces.']},
+    {id:'p1',slot:'pri',n:'Pollo a la plancha con arroz y brócoli',p:'pollo',c:'arroz',f:'aove',fx:{brocoli:150},k:'pollo',cat:'ave',min:20,
+     st:['Cuece el arroz 15 minutos en agua con sal y escúrrelo.','Cuece el brócoli al vapor o en el microondas 5 minutos.','Haz el pollo a la plancha con el aceite, 4 o 5 minutos por lado.']},
+    {id:'p2',slot:'pri',n:'Salmón al horno con patata y espárragos',p:'salmon',c:'patata',f:'aove',fx:{esparragos:150},k:'salmon',cat:'azul',min:30,
+     st:['Corta la patata en rodajas finas y hornéala 15 minutos a 200 °C con la mitad del aceite.','Añade el salmón y los espárragos con el resto del aceite y sal.','Hornea 12 minutos más.']},
+    {id:'p3',slot:'pri',n:'Ternera a la plancha con boniato asado y judías verdes',p:'ternera',c:'boniato',f:'aove',fx:{judias:150},k:'ternera',cat:'roja',min:35,
+     st:['Asa el boniato en dados 25 minutos a 200 °C (o 8 minutos en el microondas).','Cuece las judías verdes 8 minutos.','Haz la ternera a la plancha con el aceite, 2 o 3 minutos por lado.']},
+    {id:'p4',slot:'pri',n:'Merluza al horno con patata y pimientos asados',p:'merluza',c:'patata',f:'aove',fx:{pimientos:150,cebolla:50},k:'merluza',cat:'pescado',min:35,
+     st:['Hornea la patata en rodajas con la cebolla y los pimientos en tiras 20 minutos a 200 °C con el aceite.','Pon la merluza encima con sal y perejil.','Hornea 10 o 12 minutos más.']},
+    {id:'p5',slot:'pri',n:'Pavo salteado con quinoa y calabacín',p:'pavo',c:'quinoa',f:'aove',fx:{calabacin:150},k:'pavo',cat:'ave',min:20,
+     st:['Lava la quinoa y cuécela 15 minutos.','Saltea el pavo en tiras con el aceite 5 minutos.','Añade el calabacín en dados 4 minutos más y mezcla con la quinoa.']},
+    {id:'p6',slot:'pri',n:'Lomo de cerdo con arroz y champiñones',p:'cerdo',c:'arroz',f:'aove',fx:{champi:120,ajo:5},k:'cerdo',cat:'roja',min:20,
+     st:['Cuece el arroz 15 minutos.','Saltea los champiñones con el ajo y la mitad del aceite.','Haz el lomo a la plancha con el resto del aceite, 3 minutos por lado.']},
+    {id:'p7',slot:'pri',n:'Pasta integral con atún y tomate',p:'atun',c:'pasta',f:'aove',fx:{tomate:150,cebolla:50},k:'atun',cat:'pescado',min:20,
+     st:['Cuece la pasta el tiempo del paquete.','Sofríe la cebolla picada con el aceite y añade el tomate triturado 8 minutos.','Mezcla con el atún escurrido y la pasta.']},
+    {id:'p8',slot:'pri',n:'Ensalada de garbanzos con atún, tomate y aguacate',p:'atun',c:'garbanzos',f:'aguacate',fx:{ensalada:100,tomate:80},k:'atun',cat:'legumbre',min:10,
+     st:['Enjuaga y escurre los garbanzos de bote.','Mezcla con la ensalada, el tomate y el atún.','Añade el aguacate en dados y aliña con vinagre y sal.']},
+    {id:'p9',slot:'pri',n:'Ensalada templada de pollo con patata y aguacate',p:'pollo',c:'patata',f:'aguacate',fx:{ensalada:120},k:'pollo',cat:'ave',min:25,
+     st:['Cuece la patata en dados 12 minutos (o 6 en el microondas).','Haz el pollo a la plancha y córtalo en tiras.','Mezcla con la ensalada y el aguacate y aliña con vinagre.']},
+    {id:'p10',slot:'pri',n:'Tortilla de patata y espinacas',p:'claras',c:'patata',f:'aove',fx:{huevo:120,espinacas:100,cebolla:40},k:'huevo',cat:'huevo',min:30,
+     st:['Pocha la patata en láminas finas y la cebolla con el aceite a fuego suave 15 minutos, tapada.','Añade las espinacas hasta que se ablanden.','Mezcla con los huevos y las claras batidos y cuaja la tortilla 3 minutos por lado.']},
+    {id:'p11',slot:'pri',n:'Tofu salteado con arroz y verduras',p:'tofu',c:'arroz',f:'aove',fx:{pimientos:100,calabacin:100},k:'tofu',cat:'vegetal',min:25,
+     st:['Cuece el arroz 15 minutos.','Dora el tofu en dados con el aceite 6 minutos.','Añade las verduras en tiras, saltea 5 minutos y termina con un chorrito de salsa de soja.']},
+    {id:'p12',slot:'pri',n:'Lentejas con arroz y verduras',p:'lentejas',c:'arroz',f:'aove',fx:{pimientos:80,calabacin:80,cebolla:50},k:'lentejas',cat:'legumbre',min:25,
+     st:['Sofríe la cebolla y las verduras picadas con el aceite 8 minutos.','Añade las lentejas cocidas escurridas, pimentón y un vaso de agua; cuece 10 minutos.','Sirve con el arroz cocido aparte.']},
+    {id:'p13',slot:'pri',n:'Salmón a la plancha con quinoa y espinacas',p:'salmon',c:'quinoa',f:'aove',fx:{espinacas:120},k:'salmon',cat:'azul',min:20,
+     st:['Cuece la quinoa 15 minutos.','Saltea las espinacas con unas gotas de aceite 2 minutos.','Haz el salmón a la plancha 3 o 4 minutos por lado.']},
+    {id:'p14',slot:'pri',n:'Boloñesa de proteína de guisante con pasta integral',p:'guisante',c:'pasta',f:'aove',fx:{tomate:150,cebolla:50},k:'guisante',cat:'vegetal',vg:1,min:25,
+     st:['Hidrata la proteína texturizada 10 minutos en agua caliente y escúrrela.','Sofríe la cebolla con el aceite, añade la proteína y el tomate triturado y cuece 10 minutos.','Mezcla con la pasta cocida.']},
+    {id:'p15',slot:'pri',n:'Chili de proteína de guisante con arroz y aguacate',p:'guisante',c:'arroz',f:'aguacate',fx:{pimientos:100,tomate:100},k:'guisante',cat:'vegetal',vg:1,min:30,
+     st:['Hidrata la proteína texturizada 10 minutos.','Guísala con los pimientos, el tomate, comino y pimentón 15 minutos.','Sirve con el arroz cocido y el aguacate en dados.']},
+    {id:'p16',slot:'pri',n:'Lentejas estofadas con verduras y patata',p:'lentejas',c:'patata',f:'aove',fx:{zanahoria:60,cebolla:50,pimientos:50},k:'lentejas',cat:'legumbre',min:30,
+     st:['Sofríe la cebolla, el pimiento y la zanahoria picados con el aceite 8 minutos.','Añade la patata en dados, pimentón y agua hasta cubrir; cuece 15 minutos.','Añade las lentejas cocidas escurridas y cuece 5 minutos más.']},
+    {id:'p17',slot:'pri',n:'Garbanzos salteados con espinacas, huevo y pan integral',p:'garbanzos',c:'pan',f:'aove',fx:{espinacas:150,huevo:60,ajo:5},k:'garbanzos',cat:'legumbre',min:15,
+     st:['Dora el ajo laminado con el aceite y añade las espinacas hasta que se ablanden.','Añade los garbanzos escurridos, comino y pimentón y saltea 4 minutos.','Sirve con un huevo cocido o a la plancha y el pan.']},
+    {id:'p18',slot:'pri',n:'Alubias estofadas con verduras y patata',p:'alubias',c:'patata',f:'aove',fx:{zanahoria:60,cebolla:50,calabacin:80},k:'alubias',cat:'legumbre',min:30,
+     st:['Sofríe la cebolla, la zanahoria y el calabacín picados con el aceite 8 minutos.','Añade la patata en dados, pimentón y agua hasta cubrir; cuece 15 minutos.','Añade las alubias cocidas escurridas y cuece 5 minutos más.']},
+    {id:'p19',slot:'pri',n:'Sardinas con ensalada de patata y tomate',p:'sardinas',c:'patata',f:'aove',fx:{tomate:120,ensalada:80,cebolla:30},k:'sardinas',cat:'azul',min:20,
+     st:['Cuece la patata en dados 12 minutos y déjala templar.','Mezcla con el tomate, la ensalada y la cebolla en juliana.','Pon encima las sardinas en lata escurridas y aliña con el aceite y vinagre.']},
+    {id:'p20',slot:'pri',n:'Caballa con arroz y pimientos asados',p:'caballa',c:'arroz',f:'aove',fx:{pimientos:150},k:'caballa',cat:'azul',min:25,
+     st:['Cuece el arroz 15 minutos.','Asa los pimientos en tiras con el aceite en la sartén 10 minutos.','Sirve con la caballa en lata escurrida por encima.']},
+    {id:'p21',slot:'pri',n:'Pollo al horno con boniato y zanahoria',p:'pollo',c:'boniato',f:'aove',fx:{zanahoria:100,cebolla:50},k:'pollo',cat:'ave',min:40,
+     st:['Corta el boniato, la zanahoria y la cebolla en trozos y mézclalos con el aceite, sal y romero.','Hornea 15 minutos a 200 °C.','Añade el pollo en trozos y hornea 20 minutos más.']},
+    {id:'p22',slot:'pri',n:'Merluza a la plancha con arroz y judías verdes',p:'merluza',c:'arroz',f:'aove',fx:{judias:150,ajo:5},k:'merluza',cat:'pescado',min:20,
+     st:['Cuece el arroz 15 minutos y las judías verdes 8 minutos.','Haz la merluza a la plancha con el aceite y el ajo picado, 3 minutos por lado.']},
+    {id:'p23',slot:'pri',n:'Ensalada de lentejas con atún, tomate y pimiento',p:'lentejas',c:'pan',f:'aove',fx:{atun:52,tomate:100,pimientos:60,cebolla:30},k:'lentejas',cat:'legumbre',min:10,
+     st:['Enjuaga y escurre las lentejas de bote.','Mezcla con el tomate, el pimiento y la cebolla picados y el atún.','Aliña con el aceite y vinagre y acompaña con el pan.']},
+    {id:'p24',slot:'pri',n:'Hamburguesa casera de pavo con patatas al horno y ensalada',p:'pavo',c:'patata',f:'aove',fx:{ensalada:100,cebolla:30},k:'pavo',cat:'ave',min:35,
+     st:['Hornea la patata en gajos con la mitad del aceite 25 minutos a 200 °C.','Mezcla el pavo picado con la cebolla rallada, sal y especias y forma la hamburguesa.','Hazla a la plancha 4 minutos por lado y sirve con la ensalada.']},
+    {id:'p25',slot:'pri',n:'Tortilla de calabacín con pan integral y tomate',p:'claras',c:'pan',f:'aove',fx:{huevo:120,calabacin:150,tomate:80},k:'huevo',cat:'huevo',min:15,
+     st:['Saltea el calabacín en dados con el aceite 6 minutos.','Añade los huevos y las claras batidos y cuaja la tortilla.','Sirve con el pan y el tomate.']},
+    {id:'p26',slot:'pri',n:'Pollo al curry con garbanzos y espinacas',p:'pollo',c:'garbanzos',f:'aove',fx:{espinacas:100,cebolla:50},k:'pollo',cat:'legumbre',min:25,
+     st:['Sofríe la cebolla picada con el aceite 5 minutos.','Añade el pollo en dados y dóralo 5 minutos con una cucharadita de curry.','Incorpora los garbanzos escurridos, las espinacas y un chorrito de agua y cuece 5 minutos.']},
+    {id:'p27',slot:'pri',n:'Ensalada de lentejas con pollo, tomate y pimiento',p:'pollo',c:'lentejas',f:'aove',fx:{tomate:100,pimientos:60,cebolla:30},k:'pollo',cat:'legumbre',min:15,
+     st:['Haz el pollo a la plancha y córtalo en tiras.','Enjuaga las lentejas de bote y mézclalas con el tomate, el pimiento y la cebolla picados.','Añade el pollo y aliña con el aceite y vinagre.']},
+    {id:'p28',slot:'pri',n:'Lentejas guisadas con verduras y huevo cocido',p:'lentejas',c:'arroz',f:'aove',fx:{huevo:60,zanahoria:60,cebolla:50},k:'lentejas',cat:'legumbre',min:25,
+     st:['Cuece el huevo 10 minutos y el arroz 15 minutos.','Sofríe la cebolla y la zanahoria con el aceite, añade las lentejas cocidas, pimentón y un vaso de agua y cuece 10 minutos.','Sirve con el arroz y el huevo en cuartos.']},
+    {id:'s1',slot:'snk',n:'Yogur proteico con plátano y nueces',p:'yogurp',c:'platano',f:'nueces',fx:{},k:'yogur',cat:'lacteo',min:2,
+     st:['Pon el yogur en un bol con el plátano en rodajas y las nueces.']},
+    {id:'s2',slot:'snk',n:'Queso batido con frutos rojos y almendras',p:'batido',c:'frutosr',f:'almendras',fx:{},k:'batido',cat:'lacteo',min:2,
+     st:['Mezcla el queso batido con los frutos rojos y las almendras.']},
+    {id:'s3',slot:'snk',n:'Tostada integral con pavo y aceite',p:'pavo',c:'pan',f:'aove',fx:{tomate:40},k:'pavo',cat:'ave',min:3,
+     st:['Tuesta el pan, riégalo con el aceite y pon el tomate y el pavo.']},
+    {id:'s4',slot:'snk',n:'Batido de proteína con leche, plátano y crema de cacahuete',p:'whey',c:'platano',f:'cacahuete',fx:{leche:200},k:'whey',cat:'lacteo',sup:1,min:3,
+     st:['Bate todo con unos cubitos de hielo 30 segundos.']},
+    {id:'s5',slot:'snk',n:'Bebida de soja con proteína vegetal, manzana y almendras',p:'protveg',c:'manzana',f:'almendras',fx:{soja:200},k:'protveg',cat:'vegetal',sup:1,vg:1,min:3,
+     st:['Agita la proteína con la bebida de soja en una botella.','Acompaña con la manzana y las almendras.']},
+    {id:'s7',slot:'snk',n:'Batido de proteína vegetal con frutos rojos y almendras',p:'protveg',c:'frutosr',f:'almendras',fx:{soja:200},k:'protveg',cat:'vegetal',sup:1,vg:1,min:3,
+     st:['Bate la proteína con la bebida de soja y los frutos rojos.','Acompaña con las almendras.']},
+    {id:'s8',slot:'snk',n:'Tortitas de arroz con atún y aguacate',p:'atun',c:'tortitas',f:'aguacate',fx:{},k:'atun',cat:'pescado',min:3,
+     st:['Unta las tortitas con el aguacate machacado y pon el atún escurrido encima.']},
+    {id:'s6',slot:'snk',n:'Tortitas de avena con claras y frutos rojos',p:'claras',c:'avena',f:'aove',fx:{frutosr:80},k:'huevo',cat:'huevo',min:10,
+     st:['Bate las claras con la avena hasta tener una masa.','Haz pequeñas tortitas en la sartén con unas gotas de aceite, 2 minutos por lado.','Sirve con los frutos rojos.']},
+    {id:'s9',slot:'snk',n:'Queso fresco con manzana y nueces',p:'queso',c:'manzana',f:'nueces',fx:{},k:'queso',cat:'lacteo',min:2,
+     st:['Corta el queso y la manzana en dados y acompaña con las nueces.']},
+    {id:'s11',slot:'snk',n:'Bebida de soja con plátano y almendras',p:'soja',c:'platano',f:'almendras',fx:{},k:'soja',cat:'vegetal',min:2,
+     st:['Sirve un vaso de bebida de soja y acompaña con el plátano y las almendras.']},
+    {id:'s12',slot:'snk',n:'Tostada integral con hummus casero y tomate',p:'garbanzos',c:'pan',f:'aove',fx:{tomate:40},k:'garbanzos',cat:'legumbre',min:8,
+     st:['Tritura los garbanzos con el aceite, zumo de limón, comino y un poco de agua hasta tener una crema.','Úntala en el pan tostado y pon el tomate en rodajas.']},
+    {id:'s10',slot:'snk',n:'Bocadillo pequeño de atún con tomate',p:'atun',c:'pan',f:'aove',fx:{tomate:40},k:'atun',cat:'pescado',min:3,
+     st:['Abre el pan, riégalo con el aceite y rellénalo con el atún escurrido y el tomate en rodajas.']}
   ];
 
   // Combinaciones automáticas: proteína × carbohidrato × grasa (+ verdura) que se ajustan a los macros de cada toma.
@@ -721,7 +897,12 @@ var MN = (function () {
   var KOF = {claras:'huevo', yogurp:'yogur'};
   var COMBOS = [];
   (function () {
-    var add = function (slot, p, c, f, fx, n) { COMBOS.push({id: 'x-' + slot + '-' + p + '-' + c + '-' + f, slot: slot, n: n, p: p, c: c, f: f, fx: fx, k: KOF[p] || p, combo: true}); };
+    var CAT = {pollo:'ave',pavo:'ave',ternera:'roja',cerdo:'roja',salmon:'azul',merluza:'pescado',atun:'pescado',claras:'huevo',tofu:'vegetal',lentejas:'legumbre',guisante:'vegetal',
+      yogurp:'lacteo',batido:'lacteo',whey:'lacteo',protveg:'vegetal'};
+    // Mezclas que no se cocinan en una casa normal: se conservan para enlaces antiguos pero ya no se proponen.
+    var ODD = {'claras-pasta':1,'claras-quinoa':1,'claras-boniato':1,'merluza-pasta':1,'salmon-pasta':1,'lentejas-quinoa':1,'lentejas-pasta':1,'whey-tortitas':1,'protveg-tortitas':1,'batido-tortitas':1};
+    var add = function (slot, p, c, f, fx, n) { COMBOS.push({id: 'x-' + slot + '-' + p + '-' + c + '-' + f, slot: slot, n: n, p: p, c: c, f: f, fx: fx, k: KOF[p] || p, combo: true,
+      cat: CAT[p] || 'otro', sup: p === 'whey' || p === 'protveg' ? 1 : 0, vg: p === 'protveg' || p === 'guisante' ? 1 : 0, old: ODD[p + '-' + c] ? 1 : 0}); };
     var VEG = ['brocoli','judias','calabacin','pimientos','espinacas','esparragos','champi','ensalada'];
     var PP = ['pollo','pavo','ternera','cerdo','salmon','merluza','atun','claras','tofu','lentejas','guisante'], PC = ['arroz','patata','boniato','quinoa','pasta'], PF = ['aove','aguacate'];
     PP.forEach(function (p, pi) { PC.forEach(function (c, ci) { PF.forEach(function (f, fi) {
@@ -783,7 +964,17 @@ var MN = (function () {
     pimientos:['🫑','Pimientos rojos, verdes o tricolor.','pimientos',2.5],
     champi:['🍄','Champiñones laminados.','champiñones laminados',4],
     esparragos:['🌿','Espárragos verdes trigueros.','esparragos verdes',7],
-    tomate:['🍅','Tomate de ensalada o tomate rallado natural.','tomate',2.2]
+    tomate:['🍅','Tomate de ensalada, tomate rallado natural o tomate triturado.','tomate',2.2],
+    cebolla:['🧅','Cebolla blanca o morada.','cebolla',1.5],
+    ajo:['🧄','Una cabeza de ajos.','ajo',5],
+    zanahoria:['🥕','Zanahorias.','zanahoria',1.2],
+    naranja:['🍊','Naranjas de mesa o mandarinas.','naranja',1.6],
+    kiwi:['🥝','Kiwis.','kiwi',3.5],
+    sardinas:['🐟','Sardinas en lata en aceite de oliva, escurridas.','sardinas lata',12],
+    caballa:['🐟','Caballa en lata al natural o en aceite de oliva, escurrida.','caballa lata',13],
+    alubias:['🫘','Alubias blancas o pintas cocidas en bote, enjuagadas.','alubias cocidas',2.4],
+    queso:['🧀','Queso fresco tipo Burgos light.','queso burgos light',6],
+    leche:['🥛','Leche semidesnatada.','leche semidesnatada',1]
   };
 
   // Comidas libres caseras: versión ligera de los antojos típicos (valores aproximados por ración).
@@ -822,6 +1013,7 @@ var MN = (function () {
     var floor = Math.max(tmb, d.sexo === 'h' ? 1500 : 1200);
     if (kcal < floor) { kcal = floor; notes.push('Las calorías se han subido al mínimo de seguridad (' + Math.round(floor) + ' kcal): el déficit elegido quedaba por debajo de la tasa metabólica basal.'); }
     kcal = Math.round(kcal / 10) * 10;
+    if (d.comidas && kcal / d.comidas > 750) notes.push('Con ' + Math.round(kcal) + ' kcal al día, repartirlas en ' + (d.comidas < 5 ? (d.comidas + 1) + ' o 5 comidas' : '5 comidas') + ' hace las raciones más fáciles de comer.');
     var hm = d.altura / 100, bmi = d.peso / (hm*hm);
     var ref = d.peso;
     if (bmi > 30) { var ideal = 25*hm*hm; ref = ideal + 0.25*(d.peso - ideal); notes.push('Las proteínas se calculan sobre un peso ajustado (' + Math.round(ref) + ' kg) por el IMC elevado.'); }
@@ -871,28 +1063,81 @@ var MN = (function () {
     }
     return A.map(function (r, i) { return r[n] / r[i]; });
   }
-  function portions(rec, target) {
+  // Mínimos cuadrados ponderados por kcal con cada alimento dentro de su ración realista.
+  // Cada alimento de la receta puede quedar libre, en su mínimo o en su máximo: se prueban todas las combinaciones y gana la más ajustada.
+  function solveBounded(vars, slot, r) {
     var W = [4, 4, 9], keys = ['p','c','f'];
-    var base = {p:0,c:0,f:0};
+    var cols = vars.map(function (id) { return keys.map(function (m, i) { return FOODS[id][m] * W[i] / 100; }); });
+    var B = vars.map(function (id) { return bounds(id, slot); });
+    var n = vars.length, total = Math.pow(3, n), best = null;
+    for (var code = 0; code < total; code++) {
+      var st = [], c2 = code; for (var i = 0; i < n; i++) { st.push(c2 % 3); c2 = Math.floor(c2 / 3); }
+      var x = new Array(n), rr = r.slice(), free = [];
+      for (var j = 0; j < n; j++) {
+        if (st[j] === 0) { free.push(j); continue; }
+        x[j] = B[j][st[j] === 1 ? 0 : 1];
+        for (var k = 0; k < 3; k++) rr[k] -= cols[j][k] * x[j];
+      }
+      if (free.length) {
+        var AtA = free.map(function (a) { return free.map(function (b2) { return cols[a][0]*cols[b2][0] + cols[a][1]*cols[b2][1] + cols[a][2]*cols[b2][2]; }); });
+        var Atr = free.map(function (a) { return cols[a][0]*rr[0] + cols[a][1]*rr[1] + cols[a][2]*rr[2]; });
+        var sol = solveLinear(AtA, Atr);
+        if (!sol) continue;
+        var okb = true;
+        free.forEach(function (j, q) { if (sol[q] < B[j][0] - 1e-6 || sol[q] > B[j][1] + 1e-6) okb = false; x[j] = sol[q]; });
+        if (!okb) continue;
+      }
+      var err = 0; for (var k2 = 0; k2 < 3; k2++) { var sum = 0; for (var j2 = 0; j2 < n; j2++) sum += cols[j2][k2] * x[j2]; err += (sum - r[k2]) * (sum - r[k2]); }
+      if (!best || err < best.err) best = {err: err, x: x};
+    }
+    return best;
+  }
+  function sideOk(id, rec) {
+    if ([rec.p, rec.c, rec.f].indexOf(id) >= 0 || rec.fx[id]) return false;
+    if (!curD) return true;
+    var bad = badTags(curD), words = dislikes(curD), fd = FOODS[id];
+    if (fd.t.some(function (t) { return bad.indexOf(t) >= 0; })) return false;
+    return !words.some(function (w) { return fd.n.toLowerCase().indexOf(w) >= 0; });
+  }
+  var PCACHE = {};
+  function portions(rec, target) {
+    var slot = rec.slot || curSlot;
+    var key = rec.id + '|' + Math.round(target.p) + '|' + Math.round(target.c) + '|' + Math.round(target.f) + '|' + (curD ? badTags(curD).join(',') + '/' + (curD.noGusta || '') : '');
+    if (PCACHE[key]) return PCACHE[key].map(function (it) { return {id: it.id, g: it.g, fixed: it.fixed, side: it.side}; });
+    var W = [4, 4, 9], keys = ['p','c','f'], base = {p:0,c:0,f:0};
     Object.keys(rec.fx).forEach(function (id) { keys.forEach(function (m) { base[m] += FOODS[id][m] * rec.fx[id] / 100; }); });
     var r = keys.map(function (m, i) { return (target[m] - base[m]) * W[i]; });
-    var vars = [rec.p, rec.c, rec.f];
-    var best = null;
-    for (var mask = 1; mask < 8; mask++) {
-      var sel = vars.filter(function (_, i) { return mask & (1 << i); });
-      var cols = sel.map(function (id) { return keys.map(function (m, i) { return FOODS[id][m] * W[i] / 100; }); });
-      var AtA = cols.map(function (a) { return cols.map(function (b2) { return a[0]*b2[0] + a[1]*b2[1] + a[2]*b2[2]; }); });
-      var Atr = cols.map(function (a) { return a[0]*r[0] + a[1]*r[1] + a[2]*r[2]; });
-      var x = solveLinear(AtA, Atr);
-      if (!x || x.some(function (v) { return v < 0; })) continue;
-      x = x.map(function (v, i) { return Math.min(v, (MAXG[sel[i]] || 300) * capScale); });
-      var err = 0; for (var k = 0; k < 3; k++) { var s = 0; for (var j = 0; j < sel.length; j++) s += cols[j][k] * x[j]; err += (s - r[k]) * (s - r[k]); }
-      if (!best || err < best.err) best = {err: err, sel: sel, x: x};
+    var tk = 4 * target.p + 4 * target.c + 9 * target.f;
+    var vars = [rec.p, rec.c, rec.f], best = solveBounded(vars, slot, r), side = null;
+    // Si la receta sola se queda corta (más de un 6 % de las calorías), prueba con pan o fruta de acompañamiento.
+    var kOf = function (b, vs) { var k = 0; vs.forEach(function (id, i) { k += kcalOf({p: FOODS[id].p * b.x[i] / 100, c: FOODS[id].c * b.x[i] / 100, f: FOODS[id].f * b.x[i] / 100}); }); return k; };
+    var baseK = kcalOf(base);
+    if (best && Math.abs((kOf(best, vars) + baseK) / tk - 1) > 0.06) {
+      var base3 = vars, bestSide = null;
+      (SIDES[slot] || []).forEach(function (sid) {
+        if (!sideOk(sid, rec)) return;
+        var v2 = base3.concat([sid]), b2 = solveBounded(v2, slot, r);
+        if (b2 && (!bestSide || b2.err < bestSide.b.err)) bestSide = {b: b2, sid: sid, v: v2};
+      });
+      // En desayunos y tentempiés se prefiere fruta antes que pan si ajusta casi igual.
+      if (bestSide && bestSide.sid === 'pan' && slot !== 'pri') {
+        (SIDES[slot] || []).forEach(function (sid) {
+          if (sid === 'pan' || !sideOk(sid, rec)) return;
+          var b3 = solveBounded(base3.concat([sid]), slot, r);
+          if (b3 && b3.err < bestSide.b.err * 1.5 && b3.err < best.err * 0.7) bestSide = {b: b3, sid: sid, v: base3.concat([sid])};
+        });
+      }
+      if (bestSide && bestSide.b.err < best.err * 0.7) { best = bestSide.b; side = bestSide.sid; vars = bestSide.v; }
     }
     var items = [];
-    if (best) best.sel.forEach(function (id, i) { var g = Math.round(best.x[i] / 5) * 5; if (g >= 5) items.push({id: id, g: g}); });
+    if (best) vars.forEach(function (id, i) {
+      var g = Math.round(best.x[i] / 5) * 5;
+      if (id === 'atun' || id === 'sardinas' || id === 'caballa') g = Math.max(g, bounds(id, slot)[0]);
+      if (g >= 5) items.push({id: id, g: g, side: id === side ? true : undefined});
+    });
     Object.keys(rec.fx).forEach(function (id) { items.push({id: id, g: rec.fx[id], fixed: true}); });
-    return items;
+    PCACHE[key] = items;
+    return items.map(function (it) { return {id: it.id, g: it.g, fixed: it.fixed, side: it.side}; });
   }
   function macrosOf(items) {
     var m = {p:0,c:0,f:0};
@@ -905,7 +1150,8 @@ var MN = (function () {
 
   function pools(d) {
     var out = {des:[], pri:[], snk:[]};
-    RECIPES.forEach(function (r) { if (!excluded(r, d)) out[r.slot].push(r); });
+    var omni = d.dieta !== 'vegetariana' && d.dieta !== 'vegana';
+    RECIPES.forEach(function (r) { if (!r.old && !(omni && r.vg) && !excluded(r, d)) out[r.slot].push(r); });
     return out;
   }
 
@@ -916,35 +1162,79 @@ var MN = (function () {
     return Math.abs(m.kcal / tk - 1) + 0.5 * Math.abs(m.p / Math.max(target.p, 1) - 1);
   }
   // Recetas de una toma ordenadas por ajuste; las que se desvían más de lo tolerable quedan fuera si hay alternativas.
-  function ranked(d, si, t) {
-    t = t || calc(d); setCaps(t);
-    var s = SLOTS[d.comidas][si], target = {p: t.p * s[2], c: t.c * s[2], f: t.f * s[2]};
+  function ranked(d, si, t, all) {
+    t = t || calc(d); setCaps(t, d);
+    var s = SLOTS[d.comidas][si], target = slotTarget(t, d, si, 0).target;
     var list = pools(d)[s[0]].map(function (r) { return {r: r, e: fitError(r, target)}; }).sort(function (a, b) { return a.e - b.e; });
+    if (all) return list;
     var good = list.filter(function (x) { return x.e <= 0.08; });
-    return good.length >= 3 ? good : list.slice(0, Math.max(3, good.length));
+    return good.length >= 6 ? good : list.slice(0, Math.max(6, good.length));
   }
-  function setCaps(t) { capScale = Math.max(1, t.kcal / 1800); }
+  function setCaps(t, d) { curD = d || null; }
 
+  // Reparto semanal de comidas y cenas según las guías de alimentación saludable (AESAN 2022):
+  // pescado 3 o 4 veces (al menos 1 azul), legumbre 3 o 4, carne roja como mucho 2 y el resto ave y huevo.
+  var WEEK_PLAN = {
+    omni: ['azul','azul','pescado','pescado','legumbre','legumbre','legumbre','legumbre','ave','ave','ave','roja','roja','huevo'],
+    vegetariana: ['legumbre','legumbre','legumbre','legumbre','legumbre','legumbre','huevo','huevo','huevo','vegetal','vegetal','vegetal','vegetal','vegetal'],
+    vegana: ['legumbre','legumbre','legumbre','legumbre','legumbre','legumbre','vegetal','vegetal','vegetal','vegetal','vegetal','vegetal','vegetal','vegetal']
+  };
+  function catMatch(rec, cat) { return rec.cat === cat || (cat === 'pescado' && rec.cat === 'azul'); }
   function pickWeek(d, seedExtra) {
     var t = calc(d), slots = SLOTS[d.comidas], rand = rng(hash((d.nombre || '') + '|' + (seedExtra || 0)));
-    var P = slots.map(function (s, si) { return ranked(d, si, t).map(function (x) { return x.r; }); });
-    var week = [];
+    // En comidas y cenas se admite algo más de margen para poder cumplir el reparto saludable de la semana.
+    var PALL = slots.map(function (s, si) { return ranked(d, si, t, true); });
+    var P = slots.map(function (s, si) {
+      var all = PALL[si];
+      var ok = all.filter(function (x) { return x.e <= (s[0] === 'pri' ? 0.15 : 0.08); });
+      return (ok.length >= 6 ? ok : all.slice(0, Math.max(6, ok.length))).map(function (x) { return x.r; });
+    });
+    var mains = []; slots.forEach(function (s, si) { if (s[0] === 'pri') mains.push(si); });
+    // Grupos disponibles para este cliente (si excluye el pescado, sus huecos pasan a otros grupos).
+    var plan = (WEEK_PLAN[d.dieta] || WEEK_PLAN.omni).slice();
+    var avail = function (cat) { return mains.every(function (si) { return P[si].some(function (r) { return catMatch(r, cat); }); }); };
+    var fallback = ['legumbre','ave','huevo','pescado','vegetal','roja'].filter(avail);
+    plan = plan.map(function (c, i) { return avail(c) ? c : (fallback[i % Math.max(1, fallback.length)] || null); });
+    // Baraja los grupos sin repetir grupo en comida y cena del mismo día.
+    var sched = null, bestBad = 1e9;
+    for (var tries = 0; tries < 300 && bestBad > 0; tries++) {
+      var sh = plan.slice();
+      for (var i = sh.length - 1; i > 0; i--) { var j = Math.floor(rand() * (i + 1)), tmp = sh[i]; sh[i] = sh[j]; sh[j] = tmp; }
+      var bad = 0;
+      for (var dd = 0; dd < 7; dd++) {
+        if (mains.length > 1 && sh[dd * 2] && sh[dd * 2] === sh[dd * 2 + 1]) bad++;
+        if (dd > 0 && sh[dd * 2] && sh[dd * 2] === sh[(dd - 1) * 2 + 1]) bad += 0.5;
+      }
+      if (bad < bestBad) { bestBad = bad; sched = sh; }
+    }
+    var week = [], uses = {}, roja = 0;
     for (var day = 0; day < 7; day++) {
-      var row = [], usedK = [];
+      var row = [], usedK = [], supToday = 0;
       slots.forEach(function (s, si) {
         var pool = P[si];
         if (!pool.length) { row.push(null); return; }
-        var prev = day > 0 ? week[day-1][si] : null;
-        var cand = pool.filter(function (r) {
-          if (prev && r.id === prev) return false;
-          if (s[0] === 'pri' && usedK.indexOf(r.k) >= 0) return false;
-          if (s[0] === 'pri' && day > 0) { var prevK = week[day-1].map(function (id) { return id && byId(id).k; }); if (prevK[si] === r.k) return false; }
-          return true;
-        });
-        if (!cand.length) cand = pool.filter(function (r) { return !(prev && r.id === prev); });
-        if (!cand.length) cand = pool;
+        var mi = mains.indexOf(si), want = mi >= 0 && sched ? sched[day * mains.length + mi] : null;
+        var recent = [];
+        for (var back = 1; back <= 2; back++) if (day - back >= 0) recent = recent.concat(week[day - back]);
+        var rules = [
+          function (r) { return (!want || catMatch(r, want)) && recent.indexOf(r.id) < 0 && row.indexOf(r.id) < 0 && usedK.indexOf(r.k) < 0 && !(r.sup && supToday) && (uses[r.id] || 0) < 2; },
+          function (r) { return (!want || catMatch(r, want)) && row.indexOf(r.id) < 0 && usedK.indexOf(r.k) < 0 && !(r.sup && supToday); },
+          function (r) { return !(r.cat === 'roja' && roja >= 2) && recent.indexOf(r.id) < 0 && row.indexOf(r.id) < 0 && usedK.indexOf(r.k) < 0 && !(r.sup && supToday); },
+          function (r) { return !(r.cat === 'roja' && roja >= 2) && row.indexOf(r.id) < 0 && !(r.sup && supToday); },
+          function (r) { return row.indexOf(r.id) < 0; },
+          function () { return true; }
+        ];
+        var cand = [];
+        for (var q = 0; q < rules.length && !cand.length; q++) {
+          cand = pool.filter(rules[q]);
+          // Si el grupo del día (por ejemplo pescado) no está entre las mejores, busca en todas las recetas de ese grupo con un ajuste aceptable.
+          if (!cand.length && q === 1 && want) cand = PALL[si].filter(function (x) { return x.e <= 0.25 && catMatch(x.r, want) && row.indexOf(x.r.id) < 0; }).map(function (x) { return x.r; });
+        }
+        // Prefiere las recetas menos usadas esta semana.
+        var minUse = Math.min.apply(null, cand.map(function (r) { return uses[r.id] || 0; }));
+        cand = cand.filter(function (r) { return (uses[r.id] || 0) === minUse; });
         var r = cand[Math.floor(rand() * cand.length)];
-        usedK.push(r.k); row.push(r.id);
+        usedK.push(r.k); row.push(r.id); uses[r.id] = (uses[r.id] || 0) + 1; if (r.sup) supToday = 1; if (mi >= 0 && r.cat === 'roja') roja++;
       });
       week.push(row);
     }
@@ -954,20 +1244,20 @@ var MN = (function () {
   function byId(id) { return INDEX[id] || null; }
 
   function buildPlan(d, week) {
-    var t = calc(d), slots = SLOTS[d.comidas]; setCaps(t);
+    var t = calc(d), slots = SLOTS[d.comidas]; setCaps(t, d);
     var days = week.map(function (row, di) {
       var meals = row.map(function (id, si) {
         var s = slots[si];
         if (!id) return {slot: s[1], type: s[0], recipe: null, items: [], m: {p:0,c:0,f:0,kcal:0}};
-        var target = {p: t.p * s[2], c: t.c * s[2], f: t.f * s[2]};
-        var items = portions(byId(id), target);
+        var stg = slotTarget(t, d, si, di);
+        var items = portions(byId(id), stg.target).concat(stg.extra.map(function (x) { return {id: x.id, g: x.g, fixed: true, dessert: true}; }));
         return {slot: s[1], type: s[0], recipe: byId(id), items: items, m: macrosOf(items)};
       });
       var tot = {p:0,c:0,f:0}; meals.forEach(function (m) { tot.p += m.m.p; tot.c += m.m.c; tot.f += m.m.f; });
       tot.kcal = kcalOf(tot);
       return {name: DAYS[di], meals: meals, tot: tot, dev: tot.kcal / t.kcal - 1};
     });
-    return {t: t, days: days};
+    return {t: t, days: days, d: d};
   }
 
   function alternatives(d, si, currentId) {
@@ -976,9 +1266,10 @@ var MN = (function () {
 
   // Combinaciones de alimentos que cumplen los macros de una toma, variadas en proteína y carbohidrato.
   function equivalents(d, si, currentId, n) {
-    var t = calc(d); setCaps(t);
-    var s = SLOTS[d.comidas][si], target = {p: t.p * s[2], c: t.c * s[2], f: t.f * s[2]};
-    var list = COMBOS.filter(function (r) { return r.slot === s[0] && r.id !== currentId && !excluded(r, d); })
+    var t = calc(d); setCaps(t, d);
+    var s = SLOTS[d.comidas][si], target = slotTarget(t, d, si, 0).target;
+    var omni = d.dieta !== 'vegetariana' && d.dieta !== 'vegana';
+    var list = COMBOS.filter(function (r) { return r.slot === s[0] && r.id !== currentId && !r.old && !(omni && r.vg) && !excluded(r, d); })
       .map(function (r) { var items = portions(r, target); return {r: r, items: items, m: macrosOf(items), e: fitError(r, target)}; })
       .filter(function (x) { return x.e <= 0.08; }).sort(function (a, b) { return a.e - b.e; });
     var cur = byId(currentId), out = [], usedP = cur ? [cur.p] : [], usedC = [];
@@ -993,10 +1284,11 @@ var MN = (function () {
   }
   // Cuántas opciones válidas (recetas + combinaciones) tiene cada toma para este cliente.
   function optionCount(d) {
-    var t = calc(d); setCaps(t);
-    return SLOTS[d.comidas].map(function (s) {
-      var target = {p: t.p * s[2], c: t.c * s[2], f: t.f * s[2]};
-      var all = RECIPES.concat(COMBOS).filter(function (r) { return r.slot === s[0] && !excluded(r, d); });
+    var t = calc(d); setCaps(t, d);
+    var omni = d.dieta !== 'vegetariana' && d.dieta !== 'vegana';
+    return SLOTS[d.comidas].map(function (s, si) {
+      var target = slotTarget(t, d, si, 0).target;
+      var all = RECIPES.concat(COMBOS).filter(function (r) { return r.slot === s[0] && !r.old && !(omni && r.vg) && !excluded(r, d); });
       return {slot: s[1], recipes: all.filter(function (r) { return !r.combo && fitError(r, target) <= 0.08; }).length,
               combos: all.filter(function (r) { return r.combo && fitError(r, target) <= 0.08; }).length};
     });
@@ -1056,13 +1348,24 @@ var MN = (function () {
       if (FOODS[it.id] && FOODS[it.id].s === V && STARCH.indexOf(it.id) < 0) fv += it.g;
     }); }); });
     var pk = t.p / (t.ref || 70), cp = t.c * 4 / t.kcal, fp = t.f * 9 / t.kcal, fvDay = Math.round(fv / 7), variety = Object.keys(foods).length;
-    return [
+    var cnt = {pescado:0, legumbre:0, roja:0, fruta:0};
+    plan.days.forEach(function (day) { day.meals.forEach(function (m) {
+      if (m.recipe && m.type === 'pri') { if (m.recipe.cat === 'pescado' || m.recipe.cat === 'azul') cnt.pescado++; if (m.recipe.cat === 'legumbre') cnt.legumbre++; if (m.recipe.cat === 'roja') cnt.roja++; }
+      m.items.forEach(function (it) { if (['platano','manzana','naranja','kiwi','frutosr'].indexOf(it.id) >= 0) cnt.fruta += it.g / 120; });
+    }); });
+    var fishOk = plan.d && (plan.d.dieta === 'vegetariana' || plan.d.dieta === 'vegana' || (plan.d.excl || []).indexOf('pescado') >= 0);
+    var extra = [
+      ['Legumbres', cnt.legumbre + ' veces a la semana', cnt.legumbre >= 3, '3 o más veces'],
+      ['Fruta', String(Math.round(cnt.fruta / 7 * 10) / 10).replace('.', ',') + ' piezas al día', cnt.fruta / 7 >= 2, '2 o más piezas al día']
+    ];
+    if (!fishOk) extra.unshift(['Pescado', cnt.pescado + ' veces a la semana', cnt.pescado >= 3, '3 o más veces'], ['Carne roja', cnt.roja + ' veces a la semana', cnt.roja <= 2, 'como mucho 2 veces']);
+    return extra.concat([
       ['Proteína', String(Math.round(pk * 10) / 10).replace('.', ',') + ' g por kg', pk >= 1.4 && pk <= 2.4, 'entre 1,4 y 2,4 g por kg'],
       ['Carbohidratos', Math.round(cp * 100) + ' %', cp >= 0.345 && cp <= 0.65, 'entre 35 y 65 %'],
       ['Grasas', Math.round(fp * 100) + ' %', fp >= 0.20 && fp <= 0.35, 'entre 20 y 35 %'],
       ['Fruta y verdura', fvDay + ' g al día', fvDay >= 400, '400 g o más al día'],
       ['Variedad', variety + ' alimentos a la semana', variety >= 15, '15 o más']
-    ];
+    ]);
   }
 
   // Recomendación de entrenamiento según objetivo, experiencia, días disponibles y lugar.
@@ -1110,7 +1413,7 @@ var MN = (function () {
           calc: calc, pickWeek: pickWeek, buildPlan: buildPlan, alternatives: alternatives, shopping: shopping,
           healthBlock: healthBlock, byId: byId, macrosOf: macrosOf, equivalents: equivalents, optionCount: optionCount,
           cheats: cheats, shopCost: shopCost, PROD: PROD, COMBOS: COMBOS, calcFor: calc,
-          goalPlan: goalPlan, balance: balance, training: training};
+          goalPlan: goalPlan, balance: balance, training: training, homeUnit: homeUnit, bounds: bounds, steps: steps};
 })();
 if (typeof module !== 'undefined') module.exports = MN;
 </script>
@@ -1236,6 +1539,16 @@ if (typeof module !== 'undefined') module.exports = MN;
       '<div class="val">' + n0(g) + ' g</div><div class="bar"><i style="width:' + Math.min(100, share*100*1.6).toFixed(0) + '%"></i></div></div>';
   }
 
+  // Línea de un alimento: gramos, medida casera y si es acompañamiento o postre.
+  function itemLi(it) {
+    var u = MN.homeUnit(it.id, it.g), tag = it.dessert ? ' <span class="tagm">postre</span>' : (it.side ? ' <span class="tagm">acompañamiento</span>' : '');
+    return '<li><span class="g">' + it.g + ' g</span><span>' + esc(MN.FOODS[it.id].n) + (u ? ' <span class="meta">(' + esc(u) + ')</span>' : '') + tag + '</span></li>';
+  }
+  function stepsBlock(rec) {
+    return '<details class="how"><summary>Cómo se prepara' + (rec.min ? ' · ' + rec.min + ' min' : '') + '</summary><ol>' +
+      MN.steps(rec).map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ol></details>';
+  }
+
   /* ---------- Menú con combinaciones equivalentes ---------- */
   function menuView(plan) {
     var day = plan.days[state.day], t = plan.t;
@@ -1254,7 +1567,7 @@ if (typeof module !== 'undefined') module.exports = MN;
       if (!m.recipe) return '<article class="panel meal"><div class="meal-slot">' + m.slot + '</div><p class="meta">No hay recetas compatibles con las exclusiones elegidas.</p></article>';
       var eq = MN.equivalents(state.d, si, m.recipe.id, 6);
       var body = '<article class="panel meal"><div class="meal-slot">' + m.slot + '</div><div class="meal-name">' + esc(m.recipe.n) + '</div>' +
-        '<ul class="items">' + m.items.map(function (it) { return '<li><span class="g">' + it.g + ' g</span><span>' + esc(MN.FOODS[it.id].n) + '</span></li>'; }).join('') + '</ul>' +
+        '<ul class="items">' + m.items.map(itemLi).join('') + '</ul>' + stepsBlock(m.recipe) +
         '<div class="meal-foot"><span>' + n0(m.m.kcal) + ' kcal · P ' + n0(m.m.p) + ' · C ' + n0(m.m.c) + ' · G ' + n0(m.m.f) + '</span>' +
         '<button class="btn small" data-swap="' + si + '">Cambiar plato</button></div>';
       if (eq.list.length) {
@@ -1414,7 +1727,7 @@ if (typeof module !== 'undefined') module.exports = MN;
     if (state.mode === 'revoked') return '<div class="panel landing"><h2>Este enlace se ha desactivado</h2><p class="meta">Tu coach ha anulado este enlace. Escríbele para recibir uno nuevo.</p>' + contact + '</div>';
     if (state.mode === 'invalid') return '<div class="panel landing"><h2>Este enlace no es válido</h2><p class="meta">Puede que esté incompleto o que se haya modificado. Pide a tu coach que te lo vuelva a enviar.</p>' + contact + accessBox(true) + '</div>';
     return '<div class="panel landing"><h2>App de clientes de MetaNutrición</h2><p class="meta">Para ver tu plan, abre el enlace personal que te envió tu coach. Si aún no tienes plan, escríbenos y te contamos cómo empezar.</p>' + contact + accessBox(true) +
-      '<details><summary>Soy el coach</summary><div style="display:grid;gap:8px;margin-top:8px"><textarea id="keyIn" placeholder="Pega aquí la copia de seguridad de tu clave"></textarea>' +
+      '<details' + (/^#coach/.test(location.hash) ? ' open' : ' hidden') + '><summary>Soy el coach</summary><div style="display:grid;gap:8px;margin-top:8px"><textarea id="keyIn" placeholder="Pega aquí la copia de seguridad de tu clave"></textarea>' +
       '<div class="data-row"><button class="btn small" id="importKey">Importar clave</button><span class="err" id="keyErr"></span></div></div></details></div>';
   }
 
@@ -1461,17 +1774,34 @@ if (typeof module !== 'undefined') module.exports = MN;
     keys.forEach(function (k) { o[k] = d[k]; });
     return 'MN1.' + b64u(new TextEncoder().encode(JSON.stringify(o)));
   }
+  // Tarjeta «Tu coach»: quién está detrás, para dar confianza. Sin opiniones inventadas.
+  function coachCard() {
+    var c = CONFIG.coach || {}; if (!c.nombre) return '';
+    var ini = c.nombre.split(' ').map(function (w) { return w[0]; }).join('').slice(0, 2).toUpperCase();
+    var pic = c.foto ? '<img class="coach-pic" src="' + esc(c.foto) + '" alt="" width="56" height="56">' : '<span class="coach-pic" aria-hidden="true">' + esc(ini) + '</span>';
+    return '<div class="coach-card">' + pic + '<div><div class="card-k">Tu coach</div><b>' + esc(c.nombre) + '</b><p class="meta" style="margin:2px 0 0">' + esc(c.texto || '') + '</p></div></div>';
+  }
+  // Origen del cliente según el enlace: #diagnostico-ig, -gym, -wa, -tt, -yt.
+  var SRC = {ig: 'Instagram', gym: 'el gimnasio', wa: 'WhatsApp', tt: 'TikTok', yt: 'YouTube'};
+  function dxSource() { var m = location.hash.match(/^#diagnostico-([a-z]+)/); return m && SRC[m[1]] ? SRC[m[1]] : ''; }
+  function offerBlock() {
+    var p = CONFIG.precio, left = +CONFIG.plazasLibres || 0;
+    if (!p) return '';
+    return '<div class="dx-res offer"><div class="card-k">' + (left > 0 ? 'Plazas fundadoras · quedan ' + left : 'Programa de 12 semanas') + '</div>' +
+      '<div class="offer-price"><b>' + p + ' €</b><span class="meta">por las 12 semanas (menos de 4 € a la semana)</span></div>' +
+      (CONFIG.garantiaDias ? '<p class="meta" style="margin:0">Garantía de ' + CONFIG.garantiaDias + ' días: si no te convence, te devuelvo el dinero.</p>' : '') + '</div>';
+  }
   function dxView() {
     if (!state.dx) state.dx = {step: 0, d: JSON.parse(JSON.stringify(DX_DEF)), err: ''};
     var x = state.dx, d = x.d, st = x.step, h = '<div class="panel dx">';
     if (st >= 1 && st <= 3) h += '<div class="card-k">Diagnóstico gratis · paso ' + st + ' de 3</div><div class="dx-prog"><i style="width:' + (st / 3 * 100).toFixed(0) + '%"></i></div>';
     if (st === 0) {
       h += '<div class="dx-hero"><div class="card-k">Diagnóstico gratis · 2 minutos</div><h2>Descubre tu punto de partida</h2></div>' +
-        '<p class="meta" style="margin:0">Responde unas preguntas y te mostramos tus calorías, una meta realista para 12 semanas y cómo entrenar. Sin registrarte.</p>' +
+        '<p class="meta" style="margin:0">Responde unas preguntas y te mostramos tus calorías, tu ritmo saludable para 12 semanas y cómo entrenar. Sin registrarte.</p>' +
         '<ul class="dx-list"><li>Tu energía y tus macros del día</li><li>Cuánto puedes avanzar a un ritmo saludable</li><li>Tu plan de entreno según tus días libres</li></ul>' +
-        '<button class="btn primary" data-dx="next">Empezar mi diagnóstico</button>' +
+        '<button class="btn primary" data-dx="next">Empezar mi diagnóstico</button>' + coachCard() +
         accessBox(installed());
-      if (state.mode === 'locked') h += '<details><summary>Soy el coach</summary><div style="display:grid;gap:8px;margin-top:8px"><textarea id="keyIn" placeholder="Pega aquí la copia de seguridad de tu clave"></textarea>' +
+      if (state.mode === 'locked' && /^#coach/.test(location.hash)) h += '<details open><summary>Soy el coach</summary><div style="display:grid;gap:8px;margin-top:8px"><textarea id="keyIn" placeholder="Pega aquí la copia de seguridad de tu clave"></textarea>' +
         '<div class="data-row"><button class="btn small" id="importKey">Importar clave</button><span class="err" id="keyErr"></span></div></div></details>';
     }
     if (st === 1) {
@@ -1511,15 +1841,17 @@ if (typeof module !== 'undefined') module.exports = MN;
     var h = '<div class="card-k">Tu punto de partida</div><h2>' + first + ', esto es lo que necesitas</h2>' +
       '<div class="kpis"><div><div class="kcal">' + n0(t.kcal) + '<small>kcal al día</small></div></div>' +
       macro('Proteína', t.p, t.p * 4 / t.kcal) + macro('Carbohidratos', t.c, t.c * 4 / t.kcal) + macro('Grasas', t.f, t.f * 9 / t.kcal) + '</div>' +
-      '<div class="dx-res"><div class="card-k">Meta realista</div><div class="goal-range">' + range + '</div>' +
+      '<div class="dx-res"><div class="card-k">Ritmo saludable orientativo</div><div class="goal-range">' + range + '</div>' +
+      '<p class="meta" style="margin:0">Es una estimación si cumples el plan 5 de cada 7 días. Cada cuerpo responde a su ritmo.</p>' +
       (g.weeksNeeded ? '<p class="meta" style="margin:0">Tu meta de ' + fmtKg(g.meta) + ' está a unas ' + g.weeksNeeded + ' semanas a un ritmo saludable.</p>' : '') +
       g.notes.map(function (n) { return '<div class="note">' + esc(n) + '</div>'; }).join('') + '</div>' +
       '<div class="dx-res"><div class="card-k">Tu entreno</div><p style="margin:0">' + (tr.start ? 'Empezar con 2 días' : tr.sessions.length + ' días') + ' de fuerza ' + (tr.lugar === 'casa' ? 'en casa' : 'en el gimnasio') + ': ' +
       tr.sessions.map(function (x) { return x.name.toLowerCase() + ' ' + x.focus.toLowerCase(); }).join(', ') + '. Y ' + tr.steps + ' pasos al día.</p></div>' +
       '<div class="dx-res"><div class="card-k">Con el programa de 12 semanas</div><ul class="dx-list"><li>Tu menú semanal con recetas y opciones equivalentes</li><li>Lista de la compra con lo que vas a gastar</li><li>Una lección y un reto cada semana</li><li>Seguimiento de peso, agua, entreno y adherencia</li><li>Revisión con tu coach por WhatsApp</li></ul></div>';
     var msg = 'Hola, he hecho el diagnóstico de MetaNutrición. Soy ' + d.nombre + ', ' + d.edad + ' años. Quiero ' + {def: 'perder grasa', man: 'mantenerme y mejorar', vol: 'ganar músculo'}[d.objetivo] +
-      (d.motivo ? ' («' + d.motivo + '»)' : '') + '. Me interesa el programa de 12 semanas.\n\nCódigo para mi coach: ' + dxCode(d);
-    h += '<a class="btn primary" target="_blank" rel="noopener" href="https://wa.me/' + esc(CONFIG.whatsapp || '') + '?text=' + encodeURIComponent(msg) + '">Enviar a mi coach por WhatsApp</a>' +
+      (d.motivo ? ' («' + d.motivo + '»)' : '') + '. Me interesa el programa de 12 semanas.' + (dxSource() ? ' Vengo de ' + dxSource() + '.' : '') + '\n\nCódigo para mi coach: ' + dxCode(d);
+    h += offerBlock();
+    h += '<a class="btn primary" target="_blank" rel="noopener" href="https://wa.me/' + esc(CONFIG.whatsapp || '') + '?text=' + encodeURIComponent(msg) + '">Quiero mi plaza: hablar con mi coach</a>' +
       '<p class="meta" style="margin:0">Estimación orientativa para adultos sanos. No sustituye el consejo de un profesional sanitario.</p>' +
       '<button class="btn small" data-dx="restart">Volver a empezar</button>';
     return h;
@@ -1775,7 +2107,8 @@ if (typeof module !== 'undefined') module.exports = MN;
   function todayView(plan, wk) {
     var L = PROGRAM.lessons[wk - 1], read = prog.lessons[wk] && prog.lessons[wk].read, t = todayISO();
     var dayIdx = (new Date().getDay() + 6) % 7, day = plan.days[dayIdx];
-    var h = '<div class="cards">' + goalCard(plan, adherence(wk));
+    // Orden de la pantalla Hoy: lo que se usa cada día primero (menú, entreno, agua) y lo semanal después.
+    var h = '';
     // Lección de la semana
     h += '<article class="panel card lesson-card"><div class="card-k">Lección de la semana ' + wk + '</div><div class="card-t"><span class="emo-s" aria-hidden="true">' + L.e + '</span> ' + esc(L.t) + '</div>' +
       '<div class="data-row"><button class="btn ' + (read ? 'small' : 'primary small') + '" data-lesson="' + wk + '">' + (read ? 'Repasar' : 'Empezar lección') + '</button>' + (read ? '<span class="ok">✓ Completada</span>' : '') + '</div></article>';
@@ -1795,10 +2128,10 @@ if (typeof module !== 'undefined') module.exports = MN;
       '<a class="linkish" download="agua-metanutricion.ics" href="' + icsHref() + '">Recordatorios en mi calendario</a></div></article>';
     // Menú de hoy y check
     var done = !!prog.done[t];
-    h += '<article class="panel card"><div class="card-k">Tu menú de hoy · ' + day.name + '</div><ul class="today-meals">' + day.meals.filter(function (m) { return m.recipe; }).map(function (m) {
-      return '<li><span class="meta">' + m.slot + '</span>' + esc(m.recipe.n) + '</li>'; }).join('') + '</ul>' +
+    var menuCard = '<article class="panel card wide"><div class="card-k">Tu menú de hoy · ' + day.name + '</div><div class="today-meals">' + day.meals.filter(function (m) { return m.recipe; }).map(function (m) {
+      return '<details class="tm"><summary><span class="meta">' + m.slot + '</span>' + esc(m.recipe.n) + '</summary><ul class="items">' + m.items.map(itemLi).join('') + '</ul>' + stepsBlock(m.recipe) + '</details>'; }).join('') + '</div>' +
       '<button class="btn ' + (done ? 'small done-btn' : 'primary small') + '" id="toggleDone">' + (done ? '✓ Hoy he cumplido' : 'He cumplido mi menú hoy') + '</button></article>';
-    h += trainingToday();
+    h = '<div class="cards">' + menuCard + trainingToday() + h + goalCard(plan, adherence(wk));
     // Reto
     h += '<article class="panel card"><div class="card-k">Reto de la semana</div><label class="reto"><input type="checkbox" id="retoChk"' + (prog.reto[wk] ? ' checked' : '') + '><span>' + esc(L.reto) + '</span></label></article>';
     // Comida libre el día configurado
